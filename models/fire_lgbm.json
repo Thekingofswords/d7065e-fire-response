@@ -1,0 +1,215 @@
+{
+  "features": [
+    "temperature",
+    "smoke",
+    "co",
+    "co2",
+    "temperature_rate_30",
+    "temperature_rate_60",
+    "temperature_rate_120",
+    "temperature_rate_300",
+    "temperature_excess",
+    "temperature_max_300",
+    "temperature_std_120",
+    "smoke_rate_30",
+    "smoke_rate_60",
+    "smoke_rate_120",
+    "smoke_rate_300",
+    "smoke_excess",
+    "smoke_max_300",
+    "smoke_std_120",
+    "co_rate_30",
+    "co_rate_60",
+    "co_rate_120",
+    "co_rate_300",
+    "co_excess",
+    "co_max_300",
+    "co_std_120",
+    "co2_rate_30",
+    "co2_rate_60",
+    "co2_rate_120",
+    "co2_rate_300",
+    "co2_excess",
+    "co2_max_300",
+    "co2_std_120",
+    "co_per_smoke",
+    "temperature_rate_per_smoke_rate",
+    "nb_max_temperature",
+    "nb_diff_temperature",
+    "nb_max_smoke",
+    "nb_diff_smoke",
+    "nb_max_co",
+    "nb_diff_co",
+    "nb_max_temperature_rate_60",
+    "nb_diff_temperature_rate_60",
+    "nb_max_smoke_rate_60",
+    "nb_diff_smoke_rate_60",
+    "nb_max_temperature_excess",
+    "nb_diff_temperature_excess",
+    "temperature_ok",
+    "smoke_ok",
+    "co_ok",
+    "co2_ok",
+    "is_corridor"
+  ],
+  "threshold": 0.85,
+  "alarm_threshold": 0.425,
+  "confirm_ticks": 2,
+  "settle_seconds": 300.0,
+  "trees": 237,
+  "data": [
+    "/tmp/claude-0/-home-claude/df06f946-bd9b-596e-92d2-ec7a74484d60/scratchpad/ds_p2"
+  ],
+  "scenarios": 1250,
+  "samples": 1827280,
+  "test_metrics": {
+    "model": {
+      "fires": 94,
+      "detected": 85,
+      "detection_rate": 0.9042553191489362,
+      "delay_after_ignition_median_s": 10.0,
+      "delay_after_ignition_p90_s": 30.0,
+      "delay_after_flaming_median_s": -210.0,
+      "delay_after_flaming_p90_s": 20.0,
+      "false_alarms": 7,
+      "quiet_room_hours": 725.1055555555556,
+      "false_alarms_per_100_room_hours": 0.9653766884514897,
+      "false_alarm_causes": {
+        "fire in neighbouring room": 4,
+        "nuisance: smoking": 2,
+        "fault: sensor offline": 1
+      }
+    },
+    "model_alarm": {
+      "fires": 94,
+      "detected": 93,
+      "detection_rate": 0.9893617021276596,
+      "delay_after_ignition_median_s": 10.0,
+      "delay_after_ignition_p90_s": 20.0,
+      "delay_after_flaming_median_s": -175.0,
+      "delay_after_flaming_p90_s": 10.0,
+      "false_alarms": 40,
+      "quiet_room_hours": 725.1055555555556,
+      "false_alarms_per_100_room_hours": 5.516438219722798,
+      "false_alarm_causes": {
+        "fire in neighbouring room": 28,
+        "fault: sensor offline": 6,
+        "nuisance: smoking": 3,
+        "nuisance in neighbouring room: smoking": 1,
+        "nuisance: cooking": 1,
+        "nuisance in neighbouring room: steam": 1
+      }
+    },
+    "rules_release": {
+      "fires": 94,
+      "detected": 92,
+      "detection_rate": 0.9787234042553191,
+      "delay_after_ignition_median_s": 215.0,
+      "delay_after_ignition_p90_s": 750.0,
+      "delay_after_flaming_median_s": 30.0,
+      "delay_after_flaming_p90_s": 40.0,
+      "false_alarms": 147,
+      "quiet_room_hours": 725.1055555555556,
+      "false_alarms_per_100_room_hours": 20.272910457481284,
+      "false_alarm_causes": {
+        "fire in neighbouring room": 131,
+        "nuisance in neighbouring room: smoking": 8,
+        "nuisance in neighbouring room: steam": 4,
+        "fault: sensor offline": 2,
+        "nuisance: smoking": 1,
+        "nuisance: steam (lingering smoke)": 1
+      }
+    },
+    "rules_alarm": {
+      "fires": 94,
+      "detected": 93,
+      "detection_rate": 0.9893617021276596,
+      "delay_after_ignition_median_s": 50.0,
+      "delay_after_ignition_p90_s": 127.99999999999997,
+      "delay_after_flaming_median_s": -130.0,
+      "delay_after_flaming_p90_s": 10.0,
+      "false_alarms": 433,
+      "quiet_room_hours": 725.1055555555556,
+      "false_alarms_per_100_room_hours": 59.715443728499295,
+      "false_alarm_causes": {
+        "fire in neighbouring room": 259,
+        "nuisance in neighbouring room: steam": 28,
+        "nuisance in neighbouring room: cooking": 26,
+        "nuisance: smoking": 23,
+        "nuisance: cooking": 23,
+        "nuisance: steam": 21,
+        "nuisance in neighbouring room: smoking": 19,
+        "nuisance: dust": 15,
+        "nuisance in neighbouring room: dust": 9,
+        "fault: sensor offline": 3,
+        "nuisance in neighbouring room: heater": 3,
+        "fault: smoke spikes": 2,
+        "fault: smoke drift": 1,
+        "nuisance: smoking (lingering smoke)": 1
+      }
+    }
+  },
+  "top_features": [
+    [
+      "co",
+      0.2716892604327046
+    ],
+    [
+      "nb_diff_temperature",
+      0.18814536630518608
+    ],
+    [
+      "nb_diff_co",
+      0.10195803756302314
+    ],
+    [
+      "co_max_300",
+      0.08151398547454422
+    ],
+    [
+      "temperature_max_300",
+      0.04073119537741702
+    ],
+    [
+      "smoke",
+      0.039745668371112076
+    ],
+    [
+      "co_per_smoke",
+      0.035965443208808345
+    ],
+    [
+      "co2_rate_120",
+      0.03138392200586105
+    ],
+    [
+      "co_std_120",
+      0.026324951479353743
+    ],
+    [
+      "is_corridor",
+      0.025481995833887553
+    ],
+    [
+      "nb_diff_smoke",
+      0.01598050794282751
+    ],
+    [
+      "nb_max_temperature",
+      0.014000859291049208
+    ],
+    [
+      "smoke_rate_30",
+      0.012146256568689916
+    ],
+    [
+      "nb_diff_temperature_excess",
+      0.010835173169446653
+    ],
+    [
+      "temperature_rate_per_smoke_rate",
+      0.009719188686392464
+    ]
+  ],
+  "trained_at": "2026-10-07 15:11:43"
+}

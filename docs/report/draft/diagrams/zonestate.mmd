@@ -1,0 +1,11 @@
+%%{init: {"theme":"base","themeVariables":{"primaryColor":"#dbe9fb","primaryBorderColor":"#2563a8","fontFamily":"Helvetica","fontSize":"14px"}}}%%
+stateDiagram-v2
+    direction LR
+    [*] --> NORMAL
+    NORMAL --> ALARM: smoke ≥ 8 %/m or CO ≥ 50 ppm<br/>(or anomaly classified as fire), 2 ticks
+    ALARM --> NORMAL: smoke ≤ 2 %/m and CO low, 3 ticks
+    NORMAL --> SUPPRESSING: fire confirmed or ≥ 90 °C
+    ALARM --> SUPPRESSING: ≥ 68 °C, or rate of rise ≥ 8.3 °C/min<br/>with CO / fast rise / ≥ 50 °C
+    SUPPRESSING --> COOLDOWN: ≤ 35 °C and not heating,<br/>after ≥ 300 s of water (never while Degraded)
+    COOLDOWN --> NORMAL: 120 s, clear
+    COOLDOWN --> ALARM: smoke left

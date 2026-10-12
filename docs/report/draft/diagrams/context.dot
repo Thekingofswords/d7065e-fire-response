@@ -1,0 +1,17 @@
+digraph context {
+  rankdir=TB;
+  graph [fontname="Helvetica", fontsize=10, nodesep=0.45, ranksep=0.55, pad=0.2, bgcolor="white"];
+  node  [fontname="Helvetica", fontsize=9, shape=box, style="rounded,filled", fillcolor="#dbe9fb", color="#2563a8", penwidth=1.2, margin="0.15,0.08"];
+  edge  [fontname="Helvetica", fontsize=8, color="#5b6b80", fontcolor="#5b6b80", arrowsize=0.7];
+  manager  [label=<<b>Building manager</b><br/>[Person]<br/>monitors, overrides>, shape=box, fillcolor="#2563a8", fontcolor="white", color="#1e4e8c"];
+  occupants[label=<<b>Occupants</b><br/>[Person]<br/>sensed, evacuated>, fillcolor="#2563a8", fontcolor="white", color="#1e4e8c"];
+  system   [label=<<b>Fire Detection &amp; Evacuation</b><br/>[Software System]<br/>detects fires, suppresses, closes and<br/>unlocks doors, plans the evacuation>, fillcolor="#bcd6f7", penwidth=2];
+  buildsim [label=<<b>BuildSim</b><br/>[Software System, provided]<br/>building model, shared state,<br/>3D viewer (WebSocket)>, fillcolor="#e5e7eb", color="#6b7280"];
+  training [label=<<b>Offline training</b><br/>[Software System, optional]<br/>generates data, trains the models>, fillcolor="#e5e7eb", color="#6b7280", style="rounded,filled,dashed"];
+  manager -> buildsim [label="views fire, smoke, doors,\nroutes, alerts [HTTPS/WebSocket]"];
+  manager -> system   [label="history, decision log [Grafana];\nmanual commands [MQTT]"];
+  occupants -> buildsim [label="presence, position\n(entities, occupancy)", style=dashed];
+  system -> buildsim  [label="reads environment and doors;\nwrites actuators, doors, alerts,\nhighlights, coverage [REST]"];
+  training -> system  [label="model files\n(fire, anomaly, spread)", style=dashed];
+  {rank=same; manager; occupants}
+}

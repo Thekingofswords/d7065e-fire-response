@@ -1,0 +1,18 @@
+# MQTT client used by every service.
+paho-mqtt>=2.0
+# Database writer and export (PostgreSQL / TimescaleDB).
+psycopg[binary]>=3.1
+# building_agent.py with DETECTOR=model, train_model.py, generate_dataset.py.
+numpy>=1.24
+lightgbm>=4.0
+# Tests (devices/tests) and experiment plots (devices/experiments).
+pytest>=8.0
+matplotlib>=3.8
+# Occupants and evacuation (examples/api/scenario/populate_evacuation.py).
+requests>=2.31
+# Cold storage as Parquet (archive.py; without it the archive is .csv.gz).
+pyarrow>=15
+# Anomaly detection (anomaly.py, train_anomaly.py, DETECTOR=hybrid). Pinned:
+# the trained isolation forest and autoencoder are pickled with this version
+# (retrain with train_anomaly.py after changing it).
+scikit-learn==1.9.1

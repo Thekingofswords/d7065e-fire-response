@@ -1,0 +1,20 @@
+digraph pipeline {
+  rankdir=LR;
+  graph [fontname="Helvetica", fontsize=10, nodesep=0.45, ranksep=0.55, pad=0.2, bgcolor="white"];
+  node  [fontname="Helvetica", fontsize=9, shape=box, style="rounded,filled", fillcolor="#dbe9fb", color="#2563a8", penwidth=1.2, margin="0.15,0.08"];
+  edge  [fontname="Helvetica", fontsize=8, color="#5b6b80", fontcolor="#5b6b80", arrowsize=0.7];
+  r  [label=<<b>sensor readings</b><br/>956 zones × 4 signals / 2 s>];
+  mq [label=<<b>MQTT broker</b><br/>buffer, retained last value>, shape=cylinder, fillcolor="#e9e3f7", color="#6b4fa8"];
+  v  [label=<<b>validation</b><br/>schema, range, NaN,<br/>future, duplicate>];
+  ag [label=<<b>agent</b><br/>health → features →<br/>detector → policy>, fillcolor="#bcd6f7"];
+  dbw[label=<<b>db-writer</b><br/>quiet zones every 5th tick,<br/>truth labels joined>];
+  hot[label=<<b>samples</b> (hot)<br/>hypertable, compressed &gt; 1 d,<br/>kept 30 d>, shape=cylinder, fillcolor="#d7f2e3", color="#2f855a"];
+  warm[label=<<b>samples_1m</b> (warm)<br/>continuous aggregate>, shape=cylinder, fillcolor="#d7f2e3", color="#2f855a"];
+  cold[label=<<b>Parquet</b> (cold)<br/>archive/date=…/>, shape=cylinder, fillcolor="#d7f2e3", color="#2f855a"];
+  tr [label=<<b>training</b><br/>export_dataset, generate_dataset,<br/>train_* (offline)>, style="rounded,filled,dashed"];
+  r -> mq -> v -> ag;
+  mq -> dbw -> hot -> warm;
+  hot -> cold [label="archiver, 6 h"];
+  cold -> tr; hot -> tr [style=dashed];
+  tr -> ag [label="model files", style=dashed];
+}

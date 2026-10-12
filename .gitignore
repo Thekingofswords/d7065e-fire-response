@@ -1,0 +1,11 @@
+bin/
+dist/
+buildsim
+*.log
+recordings/
+__pycache__/
+.env
+mosquitto/certs/
+mosquitto/passwd.new
+
+devices/backup_*/

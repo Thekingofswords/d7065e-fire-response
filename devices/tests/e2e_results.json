@@ -1,0 +1,23 @@
+{
+  "release_after_flaming_sim_s": 90,
+  "egress_doors_unlocked": 765,
+  "corrupt_messages_rejected": {
+    "malformed": 2,
+    "not_numeric": 1,
+    "out_of_range": 2,
+    "future": 1,
+    "duplicate": 1
+  },
+  "spread_model": "lightgbm",
+  "evacuation_plan_versions": 8,
+  "coverage_zones_max": 2,
+  "route_checks": {
+    "checked": 13,
+    "agree": 13,
+    "mismatch": 0
+  },
+  "gateway_offline_alert_s": 1.0,
+  "sensor_recovery_s": 0.5,
+  "agent_restart_adopt_s": 4.5,
+  "buildsim_restart_recovery_s": 3.0
+}

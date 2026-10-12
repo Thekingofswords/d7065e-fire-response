@@ -1,0 +1,71 @@
+# TLS for the MQTT broker: every service connects to mosquitto:8883 and
+# verifies the broker certificate; the host sees 8883 instead of 1883.
+#
+#   sh mosquitto/make-certs.sh
+#   docker compose -f compose.yaml -f compose.override.yaml -f compose.tls.yaml up -d
+#
+# (needs Docker Compose 2.24+ for !override). Clients outside Docker use
+# MQTT_TLS=1 MQTT_HOST=localhost MQTT_PORT=8883 MQTT_CA_FILE=mosquitto/certs/ca.crt.
+
+x-tls-env: &tls-env
+  MQTT_TLS: "1"
+  MQTT_PORT: "8883"
+  MQTT_CA_FILE: /certs/ca.crt
+
+x-tls-ca: &tls-ca ./mosquitto/certs/ca.crt:/certs/ca.crt:ro
+
+services:
+  mosquitto:
+    volumes:
+      - ./mosquitto/mosquitto-tls.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./mosquitto/certs:/mosquitto/certs:ro
+    ports: !override
+      - "127.0.0.1:8883:8883"
+
+  fire-simulator:
+    environment: *tls-env
+    volumes: [*tls-ca]
+
+  sensor-gateway-level0:
+    environment: *tls-env
+    volumes: [*tls-ca]
+
+  sensor-gateway-level1:
+    environment: *tls-env
+    volumes: [*tls-ca]
+
+  sensor-gateway-level2:
+    environment: *tls-env
+    volumes: [*tls-ca]
+
+  actuator-gateway:
+    environment: *tls-env
+    volumes: [*tls-ca]
+
+  door-gateway:
+    environment: *tls-env
+    volumes: [*tls-ca]
+
+  building-agent:
+    environment: *tls-env
+    volumes: [*tls-ca]
+
+  buildsim-bridge:
+    environment: *tls-env
+    volumes: [*tls-ca]
+
+  occupants:
+    environment: *tls-env
+    volumes: [*tls-ca]
+
+  db-writer:
+    environment: *tls-env
+    volumes: [*tls-ca]
+
+  archiver:
+    environment: *tls-env
+    volumes: [*tls-ca]
+
+  csv-recorder:
+    environment: *tls-env
+    volumes: [*tls-ca]

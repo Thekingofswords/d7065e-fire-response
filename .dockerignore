@@ -1,0 +1,13 @@
+.git
+.github
+bin
+dist
+.review-go-*
+coverage*
+*.log
+*.tmp
+recordings
+models
+**/__pycache__
+.env
+mosquitto/certs

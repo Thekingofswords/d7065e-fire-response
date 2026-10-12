@@ -1,0 +1,93 @@
+# Mosquitto access control for the fire-safety system (see mosquitto.conf).
+# One user per service; each may publish only what its role owns. Passwords
+# are in passwd (hashed; development values "<user>-dev", set per service in
+# compose.override.yaml). Regenerate with:
+#   mosquitto_passwd -b mosquitto/passwd <user> <password>
+
+# fire-simulator: scenario, clock, ground truth (evaluation only), status
+user simulator
+topic readwrite sim/#
+topic write building/events
+
+# sensor gateways: readings, their own status; the scenario's fault schedule
+user sensors
+topic read sim/scenario
+topic read sim/clock
+topic write building/+/+/sensors
+topic readwrite building/gateways/+/status
+topic write building/events
+
+# actuator gateway: receives commands, confirms applied states
+user actuators
+topic read building/+/+/actuator/+/set
+topic readwrite building/+/+/actuator/+/state
+topic readwrite building/gateways/+/status
+topic write building/events
+
+# door gateway: receives door commands and faults, confirms door states
+user doors
+topic read building/doors/+/set
+topic read building/doors/+/fault
+topic read building/+/+/doors/set
+topic read building/+/doors/set
+topic read building/lifts/set
+topic read sim/scenario
+topic read sim/clock
+topic readwrite building/doors/+/state
+topic readwrite building/gateways/+/status
+topic write building/events
+
+# building agent: reads readings and confirmations, commands actuators and
+# doors, publishes alerts
+user agent
+topic read building/+/+/sensors
+topic read building/+/+/actuator/+/state
+topic read building/gateways/+/status
+topic write building/+/+/actuator/+/set
+topic write building/+/doors/set
+topic write building/+/+/doors/set
+topic write building/lifts/set
+topic write building/doors/egress/set
+topic read building/doors/+/state
+topic read building/evacuation/progress
+topic readwrite building/risk
+topic readwrite building/evacuation/plan
+topic read sim/clock
+topic readwrite building/alerts
+topic readwrite building/agent/status
+topic write building/events
+
+# BuildSim bridge: display only
+user bridge
+topic read building/+/+/sensors
+topic read building/alerts
+topic read building/risk
+topic read building/evacuation/plan
+topic readwrite building/services/buildsim-bridge/status
+topic write building/events
+
+# db-writer / csv-recorder: reads everything
+user recorder
+topic read #
+topic readwrite building/services/+/status
+topic write building/events
+
+# evacuation (occupants): marks burning dead ends via the door gateway
+user evacuation
+topic write building/+/+/doors/set
+topic read sim/clock
+topic read building/evacuation/plan
+topic read building/risk
+topic write building/evacuation/progress
+topic read building/doors/+/state
+topic readwrite building/services/evacuation/status
+topic write building/events
+
+# archiver: status only
+user archiver
+topic readwrite building/services/archiver/status
+topic write building/events
+
+# operator (building manager, tests, mosquitto_pub by hand): everything
+user operator
+topic readwrite #

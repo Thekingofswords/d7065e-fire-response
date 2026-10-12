@@ -1,0 +1,87 @@
+mosquitto-1  | chown: /mosquitto/config/mosquitto.conf: Read-only file system
+mosquitto-1  | chown: /mosquitto/config/passwd: Read-only file system
+mosquitto-1  | chown: /mosquitto/config/acl: Read-only file system
+mosquitto-1  | chown: /mosquitto/certs/ca.crt: Read-only file system
+mosquitto-1  | chown: /mosquitto/certs/ca.key: Read-only file system
+mosquitto-1  | chown: /mosquitto/certs/server.crt: Read-only file system
+mosquitto-1  | chown: /mosquitto/certs/server.key: Read-only file system
+mosquitto-1  | chown: /mosquitto/certs: Read-only file system
+mosquitto-1  | chown: /mosquitto/certs: Read-only file system
+mosquitto-1  | 1791469384: Note: It is recommended to replace `message_size_limit` with `max_packet_size`.
+mosquitto-1  | 1791469384: Warning: File /mosquitto/config/passwd has world readable permissions. Future versions will refuse to load this file.
+mosquitto-1  | To fix this, use `chmod 0700 /mosquitto/config/passwd`.
+mosquitto-1  | 1791469384: Warning: File /mosquitto/config/passwd owner is not mosquitto. Future versions will refuse to load this file.To fix this, use `chown mosquitto /mosquitto/config/passwd`.
+mosquitto-1  | 1791469384: Warning: File /mosquitto/config/passwd group is not mosquitto. Future versions will refuse to load this file.
+mosquitto-1  | 1791469384: Warning: File /mosquitto/config/acl has world readable permissions. Future versions will refuse to load this file.
+mosquitto-1  | To fix this, use `chmod 0700 /mosquitto/config/acl`.
+mosquitto-1  | 1791469384: Warning: File /mosquitto/config/acl owner is not mosquitto. Future versions will refuse to load this file.To fix this, use `chown mosquitto /mosquitto/config/acl`.
+mosquitto-1  | 1791469384: Warning: File /mosquitto/config/acl group is not mosquitto. Future versions will refuse to load this file.
+mosquitto-1  | 1791469390: New connection from 172.18.0.5:38389 on port 8883.
+mosquitto-1  | 1791469390: New client connected from 172.18.0.5:38389 as buildsim-bridge-cd3a2b (p2, c1, k15, u'bridge').
+mosquitto-1  | 1791469390: New connection from 172.18.0.6:52967 on port 8883.
+mosquitto-1  | 1791469390: New client connected from 172.18.0.6:52967 as building-agent-6d18f6 (p2, c1, k15, u'agent').
+mosquitto-1  | 1791469390: New connection from 172.18.0.7:52637 on port 8883.
+mosquitto-1  | 1791469390: New client connected from 172.18.0.7:52637 as sensors-level2-518911 (p2, c1, k15, u'sensors').
+mosquitto-1  | 1791469390: New connection from 172.18.0.8:59327 on port 8883.
+mosquitto-1  | 1791469390: New client connected from 172.18.0.8:59327 as sensors-level0-01976e (p2, c1, k15, u'sensors').
+mosquitto-1  | 1791469390: New connection from 172.18.0.9:43005 on port 8883.
+mosquitto-1  | 1791469390: New client connected from 172.18.0.9:43005 as fire-simulator-397922 (p2, c1, k15, u'simulator').
+mosquitto-1  | 1791469390: New connection from 172.18.0.10:33571 on port 8883.
+mosquitto-1  | 1791469390: New client connected from 172.18.0.10:33571 as doors-ad243a (p2, c1, k15, u'doors').
+mosquitto-1  | 1791469390: New connection from 172.18.0.11:40211 on port 8883.
+mosquitto-1  | 1791469391: New client connected from 172.18.0.11:40211 as sensors-level1-66165e (p2, c1, k15, u'sensors').
+mosquitto-1       | 1791469391: New connection from 172.18.0.12:52427 on port 8883.
+mosquitto-1       | 1791469391: New client connected from 172.18.0.12:52427 as actuators-76a2ba (p2, c1, k15, u'actuators').
+building-agent-1  | MQTT connected to mosquitto:8883 as building-agentbuilding-agent: SYNCING
+building-agent-1  | 
+building-agent-1  | building agent for 956 zones (detector=rules, time scale x5.0)
+building-agent-1  | gateway actuators: offline
+building-agent-1  | gateway doors: offline
+building-agent-1  | gateway sensors-level1: offline
+building-agent-1  | gateway sensors-level0: offline
+building-agent-1  | gateway sensors-level2: offline
+building-agent-1  | gateway sensors-level2: online
+building-agent-1  | gateway sensors-level0: online
+building-agent-1  | gateway doors: online
+building-agent-1  | gateway sensors-level1: online
+building-agent-1  | gateway actuators: online
+building-agent-1  | building-agent: RUNNING (956 zones, detector rules)
+building-agent-1  | EVACUATION PLAN v1: normal 
+building-agent-1  | 956 zones reporting, 0 stale, 5 gateways online, states {'NORMAL': 956}
+building-agent-1  | level0/A109: SMOKE PURGE ON
+building-agent-1  | SPREAD RISK: level0/A103+A112_B+A103, level0/A109, level1/A2200, level2/A3300
+building-agent-1  | level0/A109: NORMAL -> ALARM (smoke/CO)
+building-agent-1  | DOORS building/level0/doors/set: closed (fire alarm: hold-open devices released)
+building-agent-1  | DOORS building/doors/egress/set: unlocked (fire alarm: access control released for egress)
+building-agent-1  | SPREAD RISK: level0/A1000B, level1/A2400, level2/A3100
+building-agent-1  | EVACUATION PLAN v3: evacuate level0,level1,level2
+building-agent-1  | SPREAD RISK: level1/2584
+building-agent-1  | SPREAD RISK: level1/A2200
+building-agent-1  | SPREAD RISK: level1/2584, level2/A3100
+building-agent-1  | SPREAD RISK: level0/A103+A112_B+A103, level0/A120, level1/A2400
+building-agent-1  | SPREAD RISK: level0/A120, level1/A2400, level2/A3300, level2/A3400
+building-agent-1  | SPREAD RISK: level1/A219
+building-agent-1  | level0/A109: ALARM -> SUPPRESSING (rate of rise)
+building-agent-1  | level0/A109: SPRINKLER ON requested (de2ff7bd53f2)
+building-agent-1  | DOORS building/lifts/set: blocked (fire confirmed: lifts recalled)
+building-agent-1  | SPREAD RISK: level1/A208, level1/A228, level1/A2300, level2/A3100, level2/A3400
+building-agent-1  | 956 zones reporting, 0 stale, 5 gateways online, states {'NORMAL': 955, 'SUPPRESSING': 1}
+building-agent-1  | SPREAD RISK: level0/A183, level1/2584, level2/A3300
+building-agent-1  | SPREAD RISK: level0/A1000B, level1/A2400, level1/A283, level2/A3400
+building-agent-1  | SPREAD RISK: level1/2584, level1/A208, level1/A219, level1/A2300, level2/A3100
+building-agent-1  | SPREAD RISK: level2/A3300
+building-agent-1  | SPREAD RISK: level1/A2300, level1/A404, level2/A3100
+building-agent-1  | SPREAD RISK: level0/A119, level1/A2024, level1/A219, level2/A3300
+building-agent-1  | SPREAD RISK: level1/A208, level2/A504
+building-agent-1  | SPREAD RISK: level2/A3100, level2/A3400
+building-agent-1  | SPREAD RISK: level0/A119, level0/A183, level2/A3300
+building-agent-1  | SPREAD RISK: level1/A208, level1/A219, level1/A2300
+building-agent-1  | SPREAD RISK: level1/A2400, level2/A504
+building-agent-1  | SPREAD RISK: level0/A119, level1/A208, level2/A3400
+building-agent-1  | SPREAD RISK: level0/A1100+A1122+A1106, level1/A2300, level1/A2400, level1/A283, level2/3422A
+mosquitto-1       | 1791469391: New connection from 172.18.0.14:44977 on port 8883.
+mosquitto-1       | 1791469391: New client connected from 172.18.0.14:44977 as archiver-b94843 (p2, c1, k15, u'archiver').
+mosquitto-1       | 1791469391: New connection from 172.18.0.13:44393 on port 8883.
+mosquitto-1       | 1791469391: New client connected from 172.18.0.13:44393 as evacuation-5cda03 (p2, c1, k15, u'evacuation').
+mosquitto-1       | 1791469391: New connection from 172.18.0.15:34821 on port 8883.
+mosquitto-1       | 1791469391: New client connected from 172.18.0.15:34821 as db-writer-dd5ecc (p2, c1, k15, u'recorder').

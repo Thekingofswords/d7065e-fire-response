@@ -1,0 +1,2 @@
+scenario_id,zone,ignition,flaming,sprinkler_command,after_ignition_s,after_flaming_s
+0,level0/A109,2026-10-08 14:00:16+00:00,2026-10-08 14:00:36+00:00,2026-10-08 14:00:41.802146+00:00,25.802146,5.802146

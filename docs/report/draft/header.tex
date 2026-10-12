@@ -1,0 +1,30 @@
+% Layout after the course's report example (pandoc + LaTeX).
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small Fire Detection \& Evacuation}
+\fancyhead[R]{\small D7065E -- Architecture Document}
+\fancyfoot[C]{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\fancypagestyle{plain}{\fancyhf{}\fancyhead[L]{\small Fire Detection \& Evacuation}\fancyhead[R]{\small D7065E -- Architecture Document}\fancyfoot[C]{\small\thepage}}
+\usepackage{newunicodechar}
+\newunicodechar{≥}{\ensuremath{\geq}}
+\newunicodechar{≤}{\ensuremath{\leq}}
+\newunicodechar{≈}{\ensuremath{\approx}}
+\newunicodechar{₂}{\textsubscript{2}}
+\newunicodechar{−}{\ensuremath{-}}
+\newunicodechar{↔}{\ensuremath{\leftrightarrow}}
+\newunicodechar{✓}{\ensuremath{\checkmark}}
+\usepackage{amssymb}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.17}
+\usepackage{float}
+\floatplacement{figure}{H}
+\usepackage{caption}
+\captionsetup{font={small,it}, labelformat=empty, justification=raggedright, singlelinecheck=false}
+\usepackage{titlesec}
+\titlespacing*{\section}{0pt}{1.4ex plus .5ex}{0.8ex}
+\setlength{\emergencystretch}{3em}
+\usepackage{etoolbox}
+\AtBeginEnvironment{longtable}{\small}
+\renewcommand{\arraystretch}{1.15}

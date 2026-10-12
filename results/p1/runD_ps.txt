@@ -1,0 +1,16 @@
+NAME                                  IMAGE                               COMMAND                  SERVICE                 CREATED              STATUS                        PORTS
+buildingsim-actuator-gateway-1        buildingsim-actuator-gateway        "python actuator_gat…"   actuator-gateway        About a minute ago   Up About a minute (healthy)   
+buildingsim-archiver-1                buildingsim-archiver                "python archive.py -…"   archiver                About a minute ago   Up About a minute (healthy)   
+buildingsim-building-agent-1          buildingsim-building-agent          "python building_age…"   building-agent          About a minute ago   Up About a minute (healthy)   
+buildingsim-buildsim-1                buildingsim-buildsim                "/buildsim start --h…"   buildsim                About a minute ago   Up About a minute (healthy)   127.0.0.1:9090->9090/tcp
+buildingsim-buildsim-bridge-1         buildingsim-buildsim-bridge         "python buildsim_bri…"   buildsim-bridge         About a minute ago   Up About a minute (healthy)   
+buildingsim-db-writer-1               buildingsim-db-writer               "python db_writer.py"    db-writer               About a minute ago   Up About a minute (healthy)   
+buildingsim-door-gateway-1            buildingsim-door-gateway            "python door_gateway…"   door-gateway            About a minute ago   Up About a minute (healthy)   
+buildingsim-fire-simulator-1          buildingsim-fire-simulator          "python fire_simulat…"   fire-simulator          About a minute ago   Up About a minute (healthy)   
+buildingsim-grafana-1                 grafana/grafana:11.2.2              "/run.sh"                grafana                 About a minute ago   Up About a minute             127.0.0.1:3000->3000/tcp
+buildingsim-mosquitto-1               eclipse-mosquitto:2.0.18            "/docker-entrypoint.…"   mosquitto               About a minute ago   Up About a minute             127.0.0.1:8883->8883/tcp
+buildingsim-occupants-1               buildingsim-occupants               "python /scenario/po…"   occupants               About a minute ago   Up About a minute (healthy)   
+buildingsim-sensor-gateway-level0-1   buildingsim-sensor-gateway-level0   "python sensor.py"       sensor-gateway-level0   About a minute ago   Up About a minute (healthy)   
+buildingsim-sensor-gateway-level1-1   buildingsim-sensor-gateway-level1   "python sensor.py"       sensor-gateway-level1   About a minute ago   Up About a minute (healthy)   
+buildingsim-sensor-gateway-level2-1   buildingsim-sensor-gateway-level2   "python sensor.py"       sensor-gateway-level2   About a minute ago   Up About a minute (healthy)   
+buildingsim-timescaledb-1             timescale/timescaledb:latest-pg16   "docker-entrypoint.s…"   timescaledb             About a minute ago   Up About a minute (healthy)   127.0.0.1:5433->5432/tcp

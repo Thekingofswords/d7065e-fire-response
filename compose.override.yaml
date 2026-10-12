@@ -1,0 +1,330 @@
+# Fire-safety system for the whole building, on an MQTT bus with a
+# time-series database. See devices/README.md and
+# docs/fire_proj_docs/system-architecture.md for the architecture.
+#
+# The control loop closes through BuildSim:
+#   fire-simulator   physics for every room and corridor -> BuildSim room layers
+#                    (reads sprinkler/damper and door state back from BuildSim)
+#   sensor-gateway-* read the room layers from BuildSim, instrument models
+#                    -> building/<level>/<room>/sensors (MQTT)
+#   building-agent   detection and decisions for the whole building
+#                    -> actuator and door commands (MQTT)
+#   actuator-gateway sprinklers and purge dampers: validates, writes BuildSim, confirms
+#   door-gateway     every door in BuildSim (PUT /api/doors): validates, writes, confirms
+#   buildsim-bridge  registers the detectors in BuildSim, mirrors readings and alerts
+#   occupants        people on the building clock; evacuate as the agent's plan says
+#   db-writer        records everything into the database
+#   archiver         copies finished days to Parquet (cold storage)
+#   grafana          dashboard with the decision log (http://127.0.0.1:3000)
+#   mosquitto        MQTT broker (users + ACL);  timescaledb  history, events, training data
+#
+# Every device service has a health check (docker compose ps) and a watchdog
+# that exits a hung process so the restart policy restarts it.
+#
+# Tests (separate broker, fake BuildSim, nothing else needed):
+#   docker compose --profile test run --rm tests
+
+# Settings shared by every device process.
+x-sim-env: &sim-env
+  BUILDSIM_URL: http://buildsim:9090
+  MQTT_HOST: mosquitto
+  MQTT_PORT: "1883"
+  LEVEL: level0
+  # Simulated seconds per real second (a fast fire flashes over after
+  # ~6 simulated minutes; at x5 that is ~70 real seconds).
+  TIME_SCALE: "5"
+  AMBIENT_TEMP_C: "21"
+  CEILING_HEIGHT_M: "2.7"
+  PLAN_UNITS_PER_M: "5"
+  VENTILATION_ACH: "2"
+  # Which zones get detectors and sprinklers: rooms, or rooms+corridors.
+  SENSOR_SCOPE: rooms+corridors
+  # The building's wall clock when the simulator starts (simclock.py); every
+  # service follows the simulator's sim/clock from there.
+  BUILDING_CLOCK_START: ${BUILDING_CLOCK_START:-mon 07:30}
+
+x-device: &device
+  build: ./devices
+  restart: unless-stopped
+  stop_grace_period: 10s
+  healthcheck:
+    test: ["CMD", "python", "healthcheck.py"]
+    interval: 15s
+    timeout: 5s
+    retries: 3
+    start_period: 60s
+  depends_on:
+    buildsim:
+      condition: service_healthy
+    mosquitto:
+      condition: service_started
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.0.18
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./mosquitto/passwd:/mosquitto/config/passwd:ro
+      - ./mosquitto/acl:/mosquitto/config/acl:ro
+      - mosquitto-data:/mosquitto/data
+    ports:
+      - "127.0.0.1:1883:1883"
+    restart: unless-stopped
+
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_USER: fire
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fire}
+      POSTGRES_DB: fire
+    volumes:
+      - timescale-data:/var/lib/postgresql/data
+    ports:
+      # Host port for psql/Grafana/export_dataset.py; 5432 is often taken by
+      # a local PostgreSQL. Services use the internal network (timescaledb:5432).
+      - "127.0.0.1:${FIRE_DB_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fire -d fire"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  fire-simulator:
+    <<: *device
+    command: ["python", "fire_simulator.py"]
+    environment:
+      <<: *sim-env
+      MQTT_USERNAME: simulator
+      MQTT_PASSWORD: ${MQTT_PASSWORD_SIMULATOR:-simulator-dev}
+      FIRE_TICK_SECONDS: "2"
+      # fixed: the single scenario below. random: endless randomised fires,
+      # nuisances and sensor faults anywhere in the building (training data).
+      SCENARIO_MODE: fixed
+      # Fixed-mode scenario (see devices/README.md for every option).
+      START_FIRE_ROOMS: A109          # any room or corridor, "level1/A2306" for other floors
+      FIRE_START_DELAY_SECONDS: "0"   # simulated seconds
+      INCIPIENT_SECONDS: "120"        # smouldering before flaming
+      FIRE_GROWTH: fast               # slow | medium | fast | ultrafast
+      FUEL_LOAD_MJ_PER_M2: "420"      # office (Eurocode 1)
+      HRR_PER_AREA_KW_M2: "250"
+      EXTERNAL_DOORS: "0"             # open windows in the fire room
+      DOOR_OPEN_PROB: "0.5"           # share of doors standing open (fire room's always)
+      DOOR_SEED: "1"                  # change to get a different set of open doors
+    volumes:
+      - ./recordings:/recordings
+
+  sensor-gateway-level0:
+    <<: *device
+    command: ["python", "sensor.py"]
+    environment:
+      <<: *sim-env
+      MQTT_USERNAME: sensors
+      MQTT_PASSWORD: ${MQTT_PASSWORD_SENSORS:-sensors-dev}
+      GATEWAY_NAME: sensors-level0
+      GATEWAY_LEVELS: level0
+
+  sensor-gateway-level1:
+    <<: *device
+    command: ["python", "sensor.py"]
+    environment:
+      <<: *sim-env
+      MQTT_USERNAME: sensors
+      MQTT_PASSWORD: ${MQTT_PASSWORD_SENSORS:-sensors-dev}
+      GATEWAY_NAME: sensors-level1
+      GATEWAY_LEVELS: level1
+
+  sensor-gateway-level2:
+    <<: *device
+    command: ["python", "sensor.py"]
+    environment:
+      <<: *sim-env
+      MQTT_USERNAME: sensors
+      MQTT_PASSWORD: ${MQTT_PASSWORD_SENSORS:-sensors-dev}
+      GATEWAY_NAME: sensors-level2
+      GATEWAY_LEVELS: level2
+
+  actuator-gateway:
+    <<: *device
+    command: ["python", "actuator_gateway.py"]
+    environment:
+      <<: *sim-env
+      MQTT_USERNAME: actuators
+      MQTT_PASSWORD: ${MQTT_PASSWORD_ACTUATORS:-actuators-dev}
+      GATEWAY_NAME: actuators
+
+  door-gateway:
+    <<: *device
+    command: ["python", "door_gateway.py"]
+    environment:
+      <<: *sim-env
+      MQTT_USERNAME: doors
+      MQTT_PASSWORD: ${MQTT_PASSWORD_DOORS:-doors-dev}
+      GATEWAY_NAME: doors
+      # Doors with hold-open devices a fire alarm releases: all | stairs | none.
+      FIRE_DOORS: all
+      EXIT_ROOMS: 1575,A183,A119,A1405,A1015,A104
+      # Access control: office and stairwell doors locked outside these
+      # hours (weekdays), secure rooms always; fire exits never.
+      ACCESS_HOURS: "07:00-18:00"
+      SECURE_SHARE: "0.05"
+
+  # One decision agent for the whole building.
+  building-agent:
+    <<: *device
+    command: ["python", "building_agent.py"]
+    environment:
+      <<: *sim-env
+      MQTT_USERNAME: agent
+      MQTT_PASSWORD: ${MQTT_PASSWORD_AGENT:-agent-dev}
+      # rules: fixed limits. model: the LightGBM model trained with
+      # train_model.py (expects models/fire_lgbm.txt + .json). hybrid: the
+      # rules plus anomaly detection and cause classification.
+      DETECTOR: ${DETECTOR:-rules}
+      MODEL_PATH: /models/fire_lgbm.txt
+      # On an alarm, close the doors of: level (the whole floor) | zone | off.
+      DOOR_RELEASE: level
+      LIFT_RECALL: "true"
+      EGRESS_UNLOCK: "true"           # release the access control on any fire alarm
+      # Fire-spread prediction (train_spread.py); the baseline rule without it.
+      SPREAD_MODEL_PATH: /models/spread_lgbm.txt
+      # DETECTOR: hybrid uses the anomaly detector + cause classifier
+      # (train_anomaly.py) on top of the rules.
+      ANOMALY_MODEL_PATH: /models/anomaly.pkl
+    volumes:
+      - ./models:/models:ro
+
+  buildsim-bridge:
+    <<: *device
+    command: ["python", "buildsim_bridge.py"]
+    environment:
+      <<: *sim-env
+      MQTT_USERNAME: bridge
+      MQTT_PASSWORD: ${MQTT_PASSWORD_BRIDGE:-bridge-dev}
+      MAX_REQUESTS_PER_SECOND: "150"
+
+  # People with a daily schedule (arrive 07-09, lunch, leave 16-18, empty
+  # nights and weekends) on the building clock (sim/clock), evacuated as the
+  # agent's evacuation plan says (phased floors, all-clear); writes the
+  # viewer's highlights (red fire, orange risk/smoke, green safe) and routes.
+  occupants:
+    <<: *device
+    command: ["python", "/scenario/populate_evacuation.py", "http://buildsim:9090",
+              "--people", "60", "--schedule", "on", "--doors", "mqtt", "--trigger", "plan"]
+    environment:
+      <<: *sim-env
+      # once: one route when the evacuation starts (the viewer flies to every
+      # route it receives); cycle: a new evacuee every 30 s; off: none.
+      ROUTE_DISPLAY: ${ROUTE_DISPLAY:-once}
+      MQTT_USERNAME: evacuation
+      MQTT_PASSWORD: ${MQTT_PASSWORD_EVACUATION:-evacuation-dev}
+      PYTHONPATH: /app
+    volumes:
+      - ./examples/api/scenario:/scenario:ro
+
+  db-writer:
+    <<: *device
+    command: ["python", "db_writer.py"]
+    environment:
+      <<: *sim-env
+      MQTT_USERNAME: recorder
+      MQTT_PASSWORD: ${MQTT_PASSWORD_RECORDER:-recorder-dev}
+      DATABASE_URL: postgresql://fire:${POSTGRES_PASSWORD:-fire}@timescaledb:5432/fire
+      RECORD_INTERVAL: "2"
+      QUIET_EVERY: "5"                # quiet zones are sampled every 5th tick
+      COMPRESS_AFTER: 1 day           # TimescaleDB compression of raw samples
+      RETENTION_DAYS: "30"            # raw samples kept; samples_1m and the archive keep the rest
+      EVENT_RETENTION_DAYS: "365"
+    depends_on:
+      mosquitto:
+        condition: service_started
+      timescaledb:
+        condition: service_healthy
+
+  # Cold storage: finished days to Parquet under ./archive (hive partitions).
+  archiver:
+    <<: *device
+    command: ["python", "archive.py", "--out", "/archive", "--every", "6"]
+    environment:
+      <<: *sim-env
+      MQTT_USERNAME: archiver
+      MQTT_PASSWORD: ${MQTT_PASSWORD_ARCHIVER:-archiver-dev}
+      DATABASE_URL: postgresql://fire:${POSTGRES_PASSWORD:-fire}@timescaledb:5432/fire
+    volumes:
+      - ./archive:/archive
+    depends_on:
+      mosquitto:
+        condition: service_started
+      timescaledb:
+        condition: service_healthy
+
+  # Dashboard: readings, actuators, doors and the agent's decision log.
+  # http://127.0.0.1:3000 (anonymous viewer; admin / fire to edit)
+  grafana:
+    image: grafana/grafana:11.2.2
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-fire}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fire}
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/fire.json
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Optional: record to CSV files instead of / as well as the database.
+  #   docker compose --profile csv up -d csv-recorder
+  csv-recorder:
+    <<: *device
+    command: ["python", "recorder.py"]
+    profiles: ["csv"]
+    environment:
+      <<: *sim-env
+      MQTT_USERNAME: recorder
+      MQTT_PASSWORD: ${MQTT_PASSWORD_RECORDER:-recorder-dev}
+      RECORD_DIR: /recordings/live
+    volumes:
+      - ./recordings:/recordings
+
+  # Unit, end-to-end and fault-injection tests (devices/tests). Uses its own
+  # broker (same users and ACL, development passwords from passwd.test) and
+  # an in-memory fake BuildSim, so it never touches a running stack.
+  test-broker:
+    image: eclipse-mosquitto:2.0.18
+    profiles: ["test"]
+    volumes:
+      - ./mosquitto/mosquitto-test.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./mosquitto/passwd.test:/mosquitto/config/passwd:ro
+      - ./mosquitto/acl:/mosquitto/config/acl:ro
+
+  tests:
+    build: ./devices
+    profiles: ["test"]
+    depends_on:
+      - test-broker
+    working_dir: /app
+    command: ["python", "-m", "pytest", "tests", "-v", "-rs"]
+    environment:
+      RUN_E2E: "1"
+      E2E_MQTT_HOST: test-broker
+      E2E_MQTT_PORT: "1883"
+      E2E_MQTT_SECURE: "1"
+      E2E_EVACUATION_SCRIPT: /scenario/populate_evacuation.py
+      BUILDING_DATA_DIR: /data/abuilding
+      MPLBACKEND: Agg
+    volumes:
+      - ./devices:/app
+      - ./models:/models:ro       # trained models for test_anomaly and the e2e spread model
+      - ./data:/data:ro
+      - ./examples/api/scenario:/scenario:ro
+      - ./mosquitto:/mosquitto:ro
+
+volumes:
+  mosquitto-data:
+  timescale-data:

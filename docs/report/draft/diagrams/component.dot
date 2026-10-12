@@ -1,0 +1,30 @@
+digraph component {
+  rankdir=TB; ranksep=0.4; nodesep=0.3;
+  graph [fontname="Helvetica", fontsize=10, nodesep=0.45, ranksep=0.55, pad=0.2, bgcolor="white"];
+  node  [fontname="Helvetica", fontsize=9, shape=box, style="rounded,filled", fillcolor="#dbe9fb", color="#2563a8", penwidth=1.2, margin="0.15,0.08"];
+  edge  [fontname="Helvetica", fontsize=8, color="#5b6b80", fontcolor="#5b6b80", arrowsize=0.7];
+  node [fillcolor="#e3f1fd", color="#3b82c4"];
+  subgraph cluster_agent {
+    label=<<b>building-agent</b> [Container: Python]>; labeljust=l; style="dashed,rounded"; color="#2563a8"; fontcolor="#2563a8";
+    bus   [label=<<b>MQTT in</b><br/>[mqtt_bus] readings, confirmed<br/>states, clock, progress>];
+    out   [label=<<b>MQTT out</b><br/>[mqtt_bus] commands, doors,<br/>risk, plan, alerts, events>];
+    val   [label=<<b>Message validator</b><br/>[messages.py] rejects corrupt,<br/>impossible, duplicate readings>];
+    hl    [label=<<b>Sensor health</b><br/>[health.py] frozen / offline>];
+    fx    [label=<<b>Feature extractor</b><br/>[features.py] 51 features,<br/>shared with training>];
+    det   [label=<<b>Detector</b><br/>rules | LightGBM | hybrid<br/>(anomaly + cause)>];
+    pol   [label=<<b>Zone policy</b><br/>state machine, debounce,<br/>safety net 90 °C, blind zones, purge>, fillcolor="#bcd6f7", penwidth=1.8];
+    doors [label=<<b>Door policy</b><br/>egress unlock, fire doors,<br/>lift recall>];
+    spread[label=<<b>Spread model</b><br/>[spread_model.py]<br/>risk within 300 s>];
+    plan  [label=<<b>Evacuation planner</b><br/>phase, floors, zones, exits>];
+    cmd   [label=<<b>Command manager</b><br/>re-send until confirmed,<br/>adopt running sprinklers>];
+    alert [label=<<b>Alerts &amp; events</b><br/>reasons for every action>];
+    clock [label=<<b>Clock</b><br/>[simclock] building clock>, fillcolor="#f1f5f9"];
+    {rank=same; det; clock}
+    life  [label=<<b>Lifecycle</b><br/>[lifecycle.py] Running/Degraded,<br/>heartbeat, watchdog>, fillcolor="#f1f5f9"];
+  }
+  bus -> val -> hl -> fx -> det -> pol;
+  pol -> cmd; pol -> doors; pol -> alert; pol -> plan;
+  fx -> spread; spread -> plan;
+  clock -> pol [style=dashed]; life -> pol [style=dashed, label="degraded:\nnever stop water"];
+  cmd -> out; doors -> out; plan -> out; alert -> out;
+}

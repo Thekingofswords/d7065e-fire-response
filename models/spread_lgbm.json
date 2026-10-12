@@ -1,0 +1,49 @@
+{
+  "features": [
+    "temperature",
+    "temperature_rate_60",
+    "temperature_excess",
+    "smoke",
+    "smoke_rate_60",
+    "co",
+    "sprinkler",
+    "nb_max_temperature",
+    "nb_max_gradient",
+    "nb_max_gradient_open",
+    "nb_max_rate",
+    "nb_max_smoke",
+    "nb_max_smoke_open",
+    "nb_fire_open",
+    "nb_fire_any",
+    "nb_alarm_any",
+    "fire_hops",
+    "is_corridor",
+    "is_stair",
+    "neighbours"
+  ],
+  "threshold": 0.3,
+  "horizon_s": 300.0,
+  "results": [
+    {
+      "name": "model",
+      "auc": 0.8789195761490577,
+      "threshold": 0.3,
+      "precision": 0.686506000585423,
+      "recall": 0.45510996119016817,
+      "onsets": 1546,
+      "flagged_60s_ahead": 0.6759379042690815
+    },
+    {
+      "name": "baseline",
+      "auc": 0.6675372150873906,
+      "threshold": 0.5,
+      "precision": 0.6429339642933964,
+      "recall": 0.25778352738249244,
+      "onsets": 1546,
+      "flagged_60s_ahead": 0.3848641655886158
+    }
+  ],
+  "scenarios": 800,
+  "rows": 2752764,
+  "trained_at": "2026-10-07 15:25:15"
+}

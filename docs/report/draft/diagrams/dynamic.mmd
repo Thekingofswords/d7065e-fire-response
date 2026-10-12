@@ -1,0 +1,34 @@
+%%{init: {"theme":"base","themeVariables":{"primaryColor":"#dbe9fb","primaryBorderColor":"#2563a8","actorBkg":"#dbe9fb","actorBorder":"#2563a8","noteBkgColor":"#fef3c7","fontFamily":"Helvetica","fontSize":"13px"}}}%%
+sequenceDiagram
+    autonumber
+    participant SIM as fire-simulator
+    participant BS as BuildSim
+    participant SG as sensor-gateway
+    participant MQ as mosquitto
+    participant AG as building-agent
+    participant AC as actuator-gateway
+    participant DG as door-gateway
+    participant OC as occupants
+    Note over SIM: A109 smoulders (smoke, CO)
+    SIM->>BS: PUT room layers (smoke rising)
+    SG->>BS: GET room layers
+    SG->>MQ: building/level0/A109/sensors
+    MQ->>AG: reading (validated, features, detector)
+    Note over AG: smoke ≥ 8 %/m → ALARM
+    AG->>MQ: doors/egress/set unlocked, level0/doors/set closed
+    MQ->>DG: door commands
+    DG->>BS: PUT /api/doors (one snapshot)
+    AG->>MQ: evacuation/plan v2 {evacuate, level0–2}
+    MQ->>OC: plan
+    OC->>BS: highlights, route, people walking out
+    Note over SIM: flaming, rate of rise + CO
+    MQ->>AG: hotter readings
+    Note over AG: rate of rise with CO → SUPPRESSING
+    AG->>MQ: A109/actuator/sprinkler/set on
+    MQ->>AC: command
+    AC->>BS: PUT actuator state on
+    AC->>MQ: …/sprinkler/state on (confirmed)
+    SIM->>BS: GET equipment (sprinkler on)
+    Note over SIM: heat release decays exp(−t/43 s)
+    Note over AG: cool and steady ≥ 300 s → COOLDOWN, 180 s later all_clear
+    AG->>MQ: plan {all_clear}, doors normal

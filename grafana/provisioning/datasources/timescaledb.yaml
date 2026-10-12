@@ -1,0 +1,18 @@
+# Grafana data source for the fire-safety database (compose service timescaledb).
+apiVersion: 1
+datasources:
+  - name: TimescaleDB
+    uid: firedb
+    type: grafana-postgresql-datasource
+    access: proxy
+    url: timescaledb:5432
+    user: fire
+    isDefault: true
+    jsonData:
+      database: fire
+      sslmode: disable
+      timescaledb: true
+      postgresVersion: 1600
+      timeInterval: 2s
+    secureJsonData:
+      password: ${POSTGRES_PASSWORD}

@@ -1,0 +1,251 @@
+actuator,state,latency_s
+damper,1.0,0.009006
+doors (floor),closed,1.100131
+doors (floor),closed,1.100318
+doors (floor),closed,1.100443
+doors (floor),closed,1.10059
+doors (floor),closed,1.100727
+doors (floor),closed,1.100813
+doors (floor),closed,1.100889
+doors (floor),closed,1.101066
+doors (floor),closed,1.101278
+doors (floor),closed,1.101808
+doors (floor),closed,1.101922
+doors (floor),closed,1.101997
+doors (floor),closed,1.102098
+doors (floor),closed,1.102133
+doors (floor),closed,1.102195
+doors (floor),closed,1.102229
+doors (floor),closed,1.102273
+doors (floor),closed,1.102307
+doors (floor),closed,1.10235
+doors (floor),closed,1.102394
+doors (floor),closed,1.102428
+doors (floor),closed,1.102454
+doors (floor),closed,1.102491
+doors (floor),closed,1.102526
+doors (floor),closed,1.10257
+doors (floor),closed,1.102612
+doors (floor),closed,1.102644
+doors (floor),closed,1.102674
+doors (floor),closed,1.102722
+doors (floor),closed,1.102783
+doors (floor),closed,1.102809
+doors (floor),closed,1.102825
+doors (floor),closed,1.102868
+doors (floor),closed,1.102888
+doors (floor),closed,1.102905
+doors (floor),closed,1.10292
+doors (floor),closed,1.102934
+doors (floor),closed,1.102962
+doors (floor),closed,1.103
+doors (floor),closed,1.103034
+doors (floor),closed,1.10306
+doors (floor),closed,1.103114
+doors (floor),closed,1.103153
+doors (floor),closed,1.103191
+doors (floor),closed,1.103222
+doors (floor),closed,1.103253
+doors (floor),closed,1.103276
+doors (floor),closed,1.103291
+doors (floor),closed,1.103306
+doors (floor),closed,1.10332
+doors (floor),closed,1.103333
+doors (floor),closed,1.103347
+doors (floor),closed,1.10336
+doors (floor),closed,1.103376
+doors (floor),closed,1.103416
+doors (floor),closed,1.103436
+doors (floor),closed,1.103452
+doors (floor),closed,1.103466
+doors (floor),closed,1.103482
+doors (floor),closed,1.103499
+doors (floor),closed,1.103516
+doors (floor),closed,1.103531
+doors (floor),closed,1.103545
+doors (floor),closed,1.103559
+doors (floor),closed,1.103573
+doors (floor),closed,1.103603
+doors (floor),closed,1.10362
+doors (floor),closed,1.10364
+doors (floor),closed,1.103656
+doors (floor),closed,1.10367
+doors (floor),closed,1.103684
+doors (floor),closed,1.103698
+doors (floor),closed,1.103712
+doors (floor),closed,1.103726
+doors (floor),closed,1.10374
+doors (floor),closed,1.103754
+doors (floor),closed,1.103767
+doors (floor),closed,1.10378
+doors (floor),closed,1.103793
+doors (floor),closed,1.10385
+doors (floor),closed,1.103876
+doors (floor),closed,1.103895
+doors (floor),closed,1.10391
+doors (floor),closed,1.103924
+doors (floor),closed,1.103938
+doors (floor),closed,1.103952
+doors (floor),closed,1.103966
+doors (floor),closed,1.103981
+doors (floor),closed,1.103996
+doors (floor),closed,1.10401
+doors (floor),closed,1.104026
+doors (floor),closed,1.10404
+doors (floor),closed,1.104061
+doors (floor),closed,1.104094
+doors (floor),closed,1.104118
+doors (floor),closed,1.104135
+doors (floor),closed,1.10415
+doors (floor),closed,1.104164
+doors (floor),closed,1.104178
+doors (floor),closed,1.104191
+doors (floor),closed,1.104222
+doors (floor),closed,1.104235
+doors (floor),closed,1.104248
+doors (floor),closed,1.104261
+doors (floor),closed,1.104274
+doors (floor),closed,1.104287
+doors (floor),closed,1.1043
+doors (floor),closed,1.104313
+doors (floor),closed,1.104328
+doors (floor),closed,1.104342
+doors (floor),closed,1.104356
+doors (floor),closed,1.104372
+doors (floor),closed,1.104386
+sprinkler,on,0.002702
+lifts,blocked,1.175323
+lifts,blocked,1.175549
+lifts,blocked,1.175647
+lifts,blocked,1.175793
+lifts,blocked,1.175938
+lifts,blocked,1.176029
+lifts,blocked,1.176286
+lifts,blocked,1.176641
+lifts,blocked,1.176911
+doors,blocked,1.962018
+doors (floor),closed,0.977098
+damper,0.0,0.007063
+sprinkler,off,0.002383
+lifts,normal,0.854633
+lifts,normal,0.854859
+lifts,normal,0.854972
+lifts,normal,0.855091
+lifts,normal,0.855203
+lifts,normal,0.855326
+lifts,normal,0.855411
+lifts,normal,0.855455
+lifts,normal,0.855492
+doors (floor),normal,0.905714
+doors (floor),normal,0.9059
+doors (floor),normal,0.906002
+doors (floor),normal,0.906179
+doors (floor),normal,0.906643
+doors (floor),normal,0.906832
+doors (floor),normal,0.906972
+doors (floor),normal,0.907207
+doors (floor),normal,0.907575
+doors (floor),normal,0.907893
+doors (floor),normal,0.907978
+doors (floor),normal,0.908058
+doors (floor),normal,0.908138
+doors (floor),normal,0.908373
+doors (floor),normal,0.908432
+doors (floor),normal,0.908454
+doors (floor),normal,0.908472
+doors (floor),normal,0.908488
+doors (floor),normal,0.908502
+doors (floor),normal,0.908567
+doors (floor),normal,0.908644
+doors (floor),normal,0.908669
+doors (floor),normal,0.908685
+doors (floor),normal,0.908737
+doors (floor),normal,0.908756
+doors (floor),normal,0.908772
+doors (floor),normal,0.908786
+doors (floor),normal,0.908801
+doors (floor),normal,0.908816
+doors (floor),normal,0.908829
+doors (floor),normal,0.908843
+doors (floor),normal,0.908856
+doors (floor),normal,0.908888
+doors (floor),normal,0.908901
+doors (floor),normal,0.908915
+doors (floor),normal,0.90893
+doors (floor),normal,0.908942
+doors (floor),normal,0.908956
+doors (floor),normal,0.908968
+doors (floor),normal,0.908981
+doors (floor),normal,0.908994
+doors (floor),normal,0.909008
+doors (floor),normal,0.90902
+doors (floor),normal,0.909033
+doors (floor),normal,0.909046
+doors (floor),normal,0.909059
+doors (floor),normal,0.909072
+doors (floor),normal,0.909085
+doors (floor),normal,0.909098
+doors (floor),normal,0.909112
+doors (floor),normal,0.909128
+doors (floor),normal,0.909148
+doors (floor),normal,0.90916
+doors (floor),normal,0.909172
+doors (floor),normal,0.909185
+doors (floor),normal,0.909198
+doors (floor),normal,0.90921
+doors (floor),normal,0.90926
+doors (floor),normal,0.909278
+doors (floor),normal,0.909292
+doors (floor),normal,0.909305
+doors (floor),normal,0.909319
+doors (floor),normal,0.909332
+doors (floor),normal,0.909345
+doors (floor),normal,0.909358
+doors (floor),normal,0.909371
+doors (floor),normal,0.909383
+doors (floor),normal,0.90941
+doors (floor),normal,0.909426
+doors (floor),normal,0.90944
+doors (floor),normal,0.909454
+doors (floor),normal,0.909467
+doors (floor),normal,0.90948
+doors (floor),normal,0.909492
+doors (floor),normal,0.909505
+doors (floor),normal,0.909519
+doors (floor),normal,0.909534
+doors (floor),normal,0.909547
+doors (floor),normal,0.90956
+doors (floor),normal,0.909574
+doors (floor),normal,0.909587
+doors (floor),normal,0.9096
+doors (floor),normal,0.909615
+doors (floor),normal,0.909628
+doors (floor),normal,0.909642
+doors (floor),normal,0.909655
+doors (floor),normal,0.909668
+doors (floor),normal,0.909682
+doors (floor),normal,0.909695
+doors (floor),normal,0.909709
+doors (floor),normal,0.909722
+doors (floor),normal,0.90977
+doors (floor),normal,0.909793
+doors (floor),normal,0.90981
+doors (floor),normal,0.909824
+doors (floor),normal,0.909838
+doors (floor),normal,0.909852
+doors (floor),normal,0.909865
+doors (floor),normal,0.909877
+doors (floor),normal,0.90989
+doors (floor),normal,0.909904
+doors (floor),normal,0.909918
+doors (floor),normal,0.909947
+doors (floor),normal,0.90996
+doors (floor),normal,0.909975
+doors (floor),normal,0.909988
+doors (floor),normal,0.910002
+doors (floor),normal,0.910016
+doors (floor),normal,0.910029
+doors (floor),normal,0.910074
+doors (floor),normal,0.910096
+doors (floor),normal,0.910111
+doors (floor),normal,0.910124

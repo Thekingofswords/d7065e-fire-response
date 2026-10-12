@@ -1,0 +1,13 @@
+%%{init: {"theme":"base","themeVariables":{"primaryColor":"#dbe9fb","primaryBorderColor":"#2563a8","fontFamily":"Helvetica","fontSize":"14px"}}}%%
+stateDiagram-v2
+    direction LR
+    [*] --> Starting: process start
+    Starting --> Syncing: BuildSim healthy,<br/>MQTT connected
+    Syncing --> Running: retained states received /<br/>equipment registered
+    Running --> Degraded: inputs bad (gateway offline,<br/>> 20 % zones stale, BuildSim unreachable)
+    Degraded --> Running: inputs recover
+    Running --> Stopping: SIGTERM
+    Degraded --> Stopping: SIGTERM
+    Stopping --> Stopped: tick finished,<br/>"offline" published
+    Stopped --> [*]
+    Running --> [*]: crash: last will "offline",<br/>or watchdog exit after 120 s

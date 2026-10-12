@@ -1,0 +1,187 @@
+ Container buildingsim-test-broker-1 Running 
+ Image buildingsim-tests Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 552B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 432B 0.1s done
+#2 DONE 0.1s
+
+#3 [internal] load metadata for docker.io/library/python:3.12-slim
+#3 DONE 0.8s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B 0.1s done
+#4 DONE 0.1s
+
+#5 [1/6] FROM docker.io/library/python:3.12-slim@sha256:05cda9777409a9c3ffddd94a4c476b79f0769a0b4857f0c7ed9226b6800b0d6f
+#5 resolve docker.io/library/python:3.12-slim@sha256:05cda9777409a9c3ffddd94a4c476b79f0769a0b4857f0c7ed9226b6800b0d6f 0.0s done
+#5 DONE 0.0s
+
+#6 [internal] load build context
+#6 transferring context: 69.06kB 1.0s done
+#6 DONE 1.0s
+
+#7 [2/6] WORKDIR /app
+#7 CACHED
+
+#8 [3/6] RUN apt-get update     && apt-get install -y --no-install-recommends libgomp1     && rm -rf /var/lib/apt/lists/*
+#8 CACHED
+
+#9 [4/6] COPY requirements.txt ./
+#9 CACHED
+
+#10 [5/6] RUN pip install --no-cache-dir -r requirements.txt
+#10 CACHED
+
+#11 [6/6] COPY *.py ./
+#11 DONE 0.0s
+
+#12 exporting to image
+#12 exporting layers 0.1s done
+#12 exporting manifest sha256:41ea57b1568e25025d7f2466eceeba2d6c95c9a4394b91fcf2de09d1882d63c2 done
+#12 exporting config sha256:e3dccc050b5d3ac192a84048825bb5671f31fda389f23d3df30e604e5ae9b257
+#12 exporting config sha256:e3dccc050b5d3ac192a84048825bb5671f31fda389f23d3df30e604e5ae9b257 done
+#12 exporting attestation manifest sha256:53c36c4b836371c72c03a7fafa72fbdb38ada6b4e36eafa985005b6a7d6db0b8 0.0s done
+#12 exporting manifest list sha256:f25696f66158838fd545eba83561f1f4bd0a502b16d42c60a2d31b29dfbf390b done
+#12 naming to docker.io/library/buildingsim-tests:latest done
+#12 unpacking to docker.io/library/buildingsim-tests:latest 0.0s done
+#12 DONE 0.2s
+
+#13 resolving provenance for metadata file
+#13 DONE 0.0s
+ Image buildingsim-tests Built 
+ Container buildingsim-tests-run-9bbf87b17839 Creating 
+ Container buildingsim-tests-run-9bbf87b17839 Created 
+============================= test session starts ==============================
+platform linux -- Python 3.12.15, pytest-9.1.1, pluggy-1.6.0 -- /usr/local/bin/python
+cachedir: .pytest_cache
+rootdir: /app
+collecting ... collected 119 items
+
+tests/test_actuator.py::test_valid_commands[sprinkler-on-on] PASSED      [  0%]
+tests/test_actuator.py::test_valid_commands[sprinkler-off-off] PASSED    [  1%]
+tests/test_actuator.py::test_valid_commands[damper-1-1.0] PASSED         [  2%]
+tests/test_actuator.py::test_valid_commands[damper-0.5-0.5] PASSED       [  3%]
+tests/test_actuator.py::test_valid_commands[damper-0.0-0.0] PASSED       [  4%]
+tests/test_actuator.py::test_invalid_commands[sprinkler-ON] PASSED       [  5%]
+tests/test_actuator.py::test_invalid_commands[sprinkler-1] PASSED        [  5%]
+tests/test_actuator.py::test_invalid_commands[sprinkler-None] PASSED     [  6%]
+tests/test_actuator.py::test_invalid_commands[damper-open] PASSED        [  7%]
+tests/test_actuator.py::test_invalid_commands[damper-1.5] PASSED         [  8%]
+tests/test_actuator.py::test_invalid_commands[damper--0.1] PASSED        [  9%]
+tests/test_actuator.py::test_invalid_commands[damper-nan] PASSED         [ 10%]
+tests/test_actuator.py::test_invalid_commands[damper-True] PASSED        [ 10%]
+tests/test_actuator.py::test_invalid_commands[valve-on] PASSED           [ 11%]
+tests/test_actuator.py::test_equipment_ids PASSED                        [ 12%]
+tests/test_agent.py::test_fire_releases_the_sprinkler_and_only_there PASSED [ 13%]
+tests/test_agent.py::test_hot_smoke_from_next_door_is_attributed_not_released PASSED [ 14%]
+tests/test_agent.py::test_sprinkler_runs_its_minimum_time_then_stops_when_cool PASSED [ 15%]
+tests/test_agent.py::test_smoke_purge_opens_and_closes_with_hysteresis PASSED [ 15%]
+tests/test_agent.py::test_faulty_thermometer_falls_back_to_smoke_and_co PASSED [ 16%]
+tests/test_agent.py::test_offline_zone_does_not_crash_the_policy PASSED  [ 17%]
+tests/test_agent.py::test_safety_net_releases_even_when_the_detector_says_no PASSED [ 18%]
+tests/test_agent.py::test_blind_zone_gets_water_when_smoke_leaks_next_door PASSED [ 19%]
+tests/test_agent.py::test_plan_is_phased_then_full_then_all_clear PASSED [ 20%]
+tests/test_agent.py::test_confirmed_fire_evacuates_every_floor_and_lists_risk PASSED [ 21%]
+tests/test_agent.py::test_level_order_is_natural PASSED                  [ 21%]
+tests/test_anomaly.py::test_normal_building_is_not_anomalous PASSED      [ 22%]
+tests/test_anomaly.py::test_fire_is_anomalous_and_classified_as_fire PASSED [ 23%]
+tests/test_anomaly.py::test_cooking_is_anomalous_but_gets_no_water PASSED [ 24%]
+tests/test_anomaly.py::test_dead_sensor_is_anomalous PASSED              [ 25%]
+tests/test_anomaly.py::test_check_zone_alert PASSED                      [ 26%]
+tests/test_clock.py::test_follower_follows_the_simulator_and_dates_old_messages PASSED [ 26%]
+tests/test_clock.py::test_follower_falls_back_without_jumping PASSED     [ 27%]
+tests/test_clock.py::test_week_minute_and_labels PASSED                  [ 28%]
+tests/test_clock.py::test_policy_clock_is_monotonic_and_bounded PASSED   [ 29%]
+tests/test_doors.py::test_door_list_covers_the_building PASSED           [ 30%]
+tests/test_doors.py::test_close_lock_and_unlock PASSED                   [ 31%]
+tests/test_doors.py::test_normal_restores_the_scenario_state PASSED      [ 31%]
+tests/test_doors.py::test_jammed_doors_and_exits_are_protected PASSED    [ 32%]
+tests/test_doors.py::test_fire_door_scope PASSED                         [ 33%]
+tests/test_doors.py::test_agent_door_policy_closes_the_floor_and_recalls_lifts PASSED [ 34%]
+tests/test_doors.py::test_closing_doors_changes_the_physics PASSED       [ 35%]
+tests/test_doors.py::test_snapshot_passes_buildsims_door_validation PASSED [ 36%]
+tests/test_doors.py::test_building_clock PASSED                          [ 36%]
+tests/test_doors.py::test_access_schedule_locks_after_hours PASSED       [ 37%]
+tests/test_doors.py::test_unlock_overrides_the_schedule_until_normal PASSED [ 38%]
+tests/test_doors.py::test_normal_never_opens_a_locked_door PASSED        [ 39%]
+tests/test_doors.py::test_agent_unlocks_egress_on_any_alarm PASSED       [ 40%]
+tests/test_doors.py::test_door_equipment_for_access_controlled_doors PASSED [ 41%]
+tests/test_e2e.py::test_fire_is_detected_and_suppressed_through_buildsim PASSED [ 42%]
+tests/test_e2e.py::test_fire_alarm_unlocks_egress_doors PASSED           [ 42%]
+tests/test_e2e.py::test_smoke_purge_opens_dampers PASSED                 [ 43%]
+tests/test_e2e.py::test_corrupt_sensor_data_is_rejected PASSED           [ 44%]
+tests/test_e2e.py::test_corrupt_actuator_command_is_rejected PASSED      [ 45%]
+tests/test_e2e.py::test_doors_are_published_to_buildsim PASSED           [ 46%]
+tests/test_e2e.py::test_fire_alarm_closes_doors_and_recalls_lifts PASSED [ 47%]
+tests/test_e2e.py::test_door_rules_are_enforced PASSED                   [ 47%]
+tests/test_e2e.py::test_jammed_door_makes_the_evacuation_replan PASSED   [ 48%]
+tests/test_e2e.py::test_agent_plan_drives_the_evacuation PASSED          [ 49%]
+tests/test_e2e.py::test_dashboard_highlights_and_coverage PASSED         [ 50%]
+tests/test_e2e.py::test_routes_agree_with_buildsims_route_api PASSED     [ 51%]
+tests/test_e2e.py::test_sensor_gateway_crash_and_recovery PASSED         [ 52%]
+tests/test_e2e.py::test_degraded_mode PASSED                             [ 52%]
+tests/test_e2e.py::test_gateway_degrades_when_buildsim_is_unreachable PASSED [ 53%]
+tests/test_e2e.py::test_graceful_shutdown PASSED                         [ 54%]
+tests/test_e2e.py::test_agent_restart_keeps_a_running_sprinkler_on PASSED [ 55%]
+tests/test_e2e.py::test_stale_sprinkler_confirmation_is_corrected PASSED [ 56%]
+tests/test_e2e.py::test_buildsim_restart_is_recovered PASSED             [ 57%]
+tests/test_e2e.py::test_broker_enforces_users_and_acl PASSED             [ 57%]
+tests/test_e2e.py::test_no_service_crashed PASSED                        [ 58%]
+tests/test_evacuation.py::test_replanning_on_the_stairs_keeps_the_progress PASSED [ 59%]
+tests/test_evacuation.py::test_entity_positions_stay_on_the_floor_page PASSED [ 60%]
+tests/test_evacuation.py::test_route_is_sent_once_so_the_camera_stays_free PASSED [ 61%]
+tests/test_health.py::test_frozen_reading_is_flagged_after_the_limit PASSED [ 62%]
+tests/test_health.py::test_values_at_the_end_of_the_range_are_not_frozen PASSED [ 63%]
+tests/test_health.py::test_stale_signals_are_offline PASSED              [ 63%]
+tests/test_lifecycle.py::test_states_are_published_retained PASSED       [ 64%]
+tests/test_lifecycle.py::test_sleep_wakes_up_when_stopping PASSED        [ 65%]
+tests/test_messages.py::test_valid_message_passes PASSED                 [ 66%]
+tests/test_messages.py::test_corrupt_messages_are_rejected[garbage-malformed] PASSED [ 67%]
+tests/test_messages.py::test_corrupt_messages_are_rejected[payload1-malformed] PASSED [ 68%]
+tests/test_messages.py::test_corrupt_messages_are_rejected[None-malformed] PASSED [ 68%]
+tests/test_messages.py::test_corrupt_messages_are_rejected[payload3-missing] PASSED [ 69%]
+tests/test_messages.py::test_corrupt_messages_are_rejected[payload4-not_numeric] PASSED [ 70%]
+tests/test_messages.py::test_corrupt_messages_are_rejected[payload5-not_numeric] PASSED [ 71%]
+tests/test_messages.py::test_corrupt_messages_are_rejected[payload6-not_numeric] PASSED [ 72%]
+tests/test_messages.py::test_corrupt_messages_are_rejected[payload7-not_numeric] PASSED [ 73%]
+tests/test_messages.py::test_corrupt_messages_are_rejected[payload8-out_of_range] PASSED [ 73%]
+tests/test_messages.py::test_corrupt_messages_are_rejected[payload9-out_of_range] PASSED [ 74%]
+tests/test_messages.py::test_corrupt_messages_are_rejected[payload10-future] PASSED [ 75%]
+tests/test_messages.py::test_duplicates_and_out_of_order_are_dropped_and_counted PASSED [ 76%]
+tests/test_physics.py::test_unsuppressed_fast_fire_flashes_over PASSED   [ 77%]
+tests/test_physics.py::test_sprinkler_puts_a_growing_fire_out PASSED     [ 78%]
+tests/test_physics.py::test_smoke_reaches_far_zones_later_and_thinner PASSED [ 78%]
+tests/test_physics.py::test_closed_doors_keep_smoke_out PASSED           [ 79%]
+tests/test_physics.py::test_smoke_rises_to_the_floor_above PASSED        [ 80%]
+tests/test_physics.py::test_purge_clears_smoke PASSED                    [ 81%]
+tests/test_physics.py::test_quiet_building_has_no_active_zones PASSED    [ 82%]
+tests/test_physics.py::test_door_states_are_deterministic PASSED         [ 83%]
+tests/test_schedule.py::test_weekday_profile PASSED                      [ 84%]
+tests/test_schedule.py::test_weekend_is_empty PASSED                     [ 84%]
+tests/test_schedule.py::test_schedule_off_keeps_everyone_in PASSED       [ 85%]
+tests/test_schedule.py::test_clock_formatting PASSED                     [ 86%]
+tests/test_sensor.py::test_heat_detector_lags_the_gas PASSED             [ 87%]
+tests/test_sensor.py::test_frozen_temperature_fault PASSED               [ 88%]
+tests/test_sensor.py::test_offline_device_repeats_its_last_reading PASSED [ 89%]
+tests/test_sensor.py::test_occupants_raise_co2 PASSED                    [ 89%]
+tests/test_sensor.py::test_environment_is_read_from_room_layers PASSED   [ 90%]
+tests/test_spread.py::test_neighbour_of_a_fire_is_at_risk_and_a_closed_door_lowers_it PASSED [ 91%]
+tests/test_spread.py::test_quiet_building_has_no_risk PASSED             [ 92%]
+tests/test_tls.py::test_service_connects_over_verified_tls SKIPPED (...) [ 93%]
+tests/test_tls.py::test_unknown_ca_is_refused SKIPPED (needs mosquit...) [ 94%]
+tests/test_tls.py::test_plain_mqtt_on_the_tls_port_fails SKIPPED (ne...) [ 94%]
+tests/test_topology.py::test_whole_building_is_loaded PASSED             [ 95%]
+tests/test_topology.py::test_known_doorways PASSED                       [ 96%]
+tests/test_topology.py::test_stairs_link_adjacent_floors PASSED          [ 97%]
+tests/test_topology.py::test_long_corridors_are_split_into_cells PASSED  [ 98%]
+tests/test_topology.py::test_json_round_trip_and_subgraph PASSED         [ 99%]
+tests/test_topology.py::test_sensor_scope_covers_rooms_and_corridors PASSED [100%]
+
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_tls.py:86: needs mosquitto and openssl
+SKIPPED [1] tests/test_tls.py:92: needs mosquitto and openssl
+SKIPPED [1] tests/test_tls.py:101: needs mosquitto and openssl
+================== 116 passed, 3 skipped in 125.26s (0:02:05) ==================

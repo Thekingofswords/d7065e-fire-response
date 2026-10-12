@@ -1,0 +1,10 @@
+ job_id |              proc_name              | hypertable_name | schedule_interval 
+--------+-------------------------------------+-----------------+-------------------
+      3 | policy_job_stat_history_retention   |                 | 06:00:00
+      1 | policy_telemetry                    |                 | 24:00:00
+   1000 | policy_compression                  | samples         | 12:00:00
+   1001 | policy_retention                    | samples         | 1 day
+   1002 | policy_retention                    | events          | 1 day
+   1003 | policy_refresh_continuous_aggregate | samples_1m      | 00:01:00
+(6 rows)
+
