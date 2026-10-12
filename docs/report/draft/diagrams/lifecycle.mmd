@@ -4,10 +4,13 @@ stateDiagram-v2
     [*] --> Starting: process start
     Starting --> Syncing: BuildSim healthy,<br/>MQTT connected
     Syncing --> Running: retained states received /<br/>equipment registered
-    Running --> Degraded: inputs bad (gateway offline,<br/>> 20 % zones stale, BuildSim unreachable)
-    Degraded --> Running: inputs recover
+    Running --> Degraded: inputs bad: broker lost,<br/>gateway offline, > 20 %<br/>zones stale, BuildSim<br/>unreachable
+    Degraded --> Running: inputs recover<br/>(reconnected,<br/>fresh readings)
     Running --> Stopping: SIGTERM
     Degraded --> Stopping: SIGTERM
     Stopping --> Stopped: tick finished,<br/>"offline" published
     Stopped --> [*]
     Running --> [*]: crash: last will "offline",<br/>or watchdog exit after 120 s
+    note right of Degraded
+        Network drop: reconnect<br/>every 1–10 s, re-subscribe,<br/>re-publish the status;<br/>QoS 1 commands wait in<br/>a queue. Meanwhile the<br/>last will says "offline";<br/>the agent keeps all water<br/>on while Degraded.
+    end note

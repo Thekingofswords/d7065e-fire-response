@@ -112,9 +112,11 @@ the test that verifies it. "Simulated s" are seconds of simulated time.
 | FR-14 | Functional | Dashboard as specified | Should | Viewer highlights red = fire, orange = smoke/risk, green = exits and escape corridors; smoke as coverage zones that pass BuildSim's validation; evacuation route shown | §14 | `test_dashboard_highlights_and_coverage` |
 | FR-15 | Functional | Evacuation routes consistent with BuildSim's route API | Should | Without hazards the local planner and `/api/graph/route` agree (≤ 5 %) on the same door snapshot; mismatches logged | §13 | `test_routes_agree_with_buildsims_route_api` |
 | NFR-11 | Non-functional | One clock | Should | Agent, door schedule and occupants follow `sim/clock`; a stale clock falls back without jumping; decision time never runs backwards | §11 | `test_clock.py`, `test_agent_plan_drives_the_evacuation` |
+| NFR-12 | Non-functional | Survive a broker outage (network drop) | Must | Every service reconnects by itself (1–10 s back-off), re-subscribes and re-publishes its status; the agent is Degraded while its inputs are stale and never switches water off; readings and Running ≤ 30 s after the broker returns | §15.3 | `test_broker_outage_degrades_and_recovers` |
 | SEC-01 | Security | Only authorised services may command actuators and doors | Must | Without a login the broker refuses; a sensor-gateway login cannot publish a sprinkler command | §20 | `test_broker_enforces_users_and_acl` |
 | SEC-02 | Security | Encrypted broker connections and secrets outside the repository | Should | TLS listener with a verified broker certificate; plain MQTT and an unknown CA refused on it; passwords from `.env` | §20 | `test_tls.py` |
 | SAF-01 | Safety | A learned model is never the only thing between a fire and the water | Must | A healthy temperature sensor at ≥ 90 °C releases regardless of the detector | §11 | `test_safety_net_releases_even_when_the_detector_says_no` |
+| REG-01 | Regulatory | Escape doors usable in a fire: doors on escape routes open in the direction of escape without a key; electrically locked doors are released by the fire alarm (Boverket's rules for escape doors; SS-EN 13637 for electrically controlled exit systems) | Must | Fire exits never locked or blocked, whoever commands; on any alarm the access control is released for the office and stairwell doors, relocked only after the all-clear | §12.2 | `test_door_rules_are_enforced`, `test_fire_alarm_unlocks_egress_doors`, live Run B |
 
 ## 5. Context (C4 level 1)
 
@@ -611,6 +613,13 @@ the agent sees it as offline. Docker's health check (`healthcheck.py`) fails
 when the heartbeat is older than 30 s; the watchdog exits the process after
 120 s so the `unless-stopped` restart policy restarts it.
 
+When the network to the broker drops, the paho client reconnects every
+1–10 s, re-subscribes and re-publishes the service's status; QoS 1 commands
+wait in its queue (up to 100,000 messages). Meanwhile the broker's last will
+reports the service offline, and the agent, without fresh readings, goes
+Degraded once its zones are stale and keeps the water on
+(`test_broker_outage_degrades_and_recovers`).
+
 ## 16. Deployment
 
 Everything runs as containers on one laptop (Docker Compose). Only BuildSim
@@ -650,7 +659,7 @@ agent. Placement reasoning:
 | Stack restarted with stale retained states | A retained sprinkler "on" from the previous run | Actuator gateway reads BuildSim at start and corrects the confirmation; the agent drops the adoption | `test_stale_sprinkler_confirmation_is_corrected` (found in the Docker run) |
 | Simulator (clock) silent or restarted | No `sim/clock` | Services continue on their own clock without a jump; the agent's decision time never runs backwards or leaps | `test_clock.py` |
 | Agent down during an evacuation | No plan updates | The retained plan stays; occupants keep evacuating until the agent's all-clear | design (retained plan) |
-| Broker restarts | Messages lost briefly | Clients reconnect and re-subscribe; retained topics restore state | manual |
+| Broker restarts or the network drops | No readings or commands while it lasts | Clients reconnect every 1–10 s and re-subscribe; QoS 1 commands queued; retained topics (persisted) restore state; actuators hold theirs; the agent goes Degraded (water stays on) and recovers on fresh readings | `test_broker_outage_degrades_and_recovers` (15 s outage, readings back 11.5 s after the restart) |
 | Database down | No recording | Control unaffected; db-writer reconnects | manual |
 
 ## 18. Design decisions
@@ -724,6 +733,7 @@ Headline results on the current build (figures and CSVs in `results/`):
 | TLS (`compose.tls.yaml`) | every service connected on 8883, all healthy | SEC-02 ✓ |
 | Viewer | red fire zone, green escape corridors and exits, one route, smoke coverage, 38 people over three floors; the camera stays where the operator puts it | FR-14 ✓ |
 | Test suite in Docker | 116 passed, 3 skipped (TLS: no broker in the test image; covered by the TLS run and locally) | – |
+| Test suite locally (12 October) | 120 passed: 98 unit, 22 end-to-end including the broker outage (readings back 11.5 s, agent Running 12.0 s after the restart) | NFR-12 |
 
 The live run found four defects the offline tests had not: people placed
 outside the floor page (BuildSim rejected every entity update), spread risk

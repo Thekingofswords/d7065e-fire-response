@@ -1,3 +1,32 @@
+# Fire Detection & Evacuation on BuildSim (D7065E)
+
+This repository is BuildSim with a fire detection, suppression and
+evacuation system built around it. BuildSim itself is not modified; it is
+instrumented through its REST API. The project lives here:
+
+| Where | What |
+|---|---|
+| `devices/` | Every service (one entry-point file per container), the tests and the experiments. Start with [`devices/README.md`](devices/README.md). |
+| `examples/api/scenario/populate_evacuation.py` | The occupants service (daily schedule, evacuation, routes) |
+| `compose.override.yaml`, `compose.tls.yaml` | The deployment (BuildSim's own service is in `compose.yaml`) |
+| `mosquitto/` | Broker configuration, users and ACL |
+| `models/`, `results/` | Trained models; offline experiments and the live-run evidence |
+| [`docs/report/draft/report.pdf`](docs/report/draft/report.pdf) | The final report (architecture document); its source and diagrams are next to it |
+| `docs/fire_proj_docs/` | System architecture and implementation plan |
+
+Quick start (Docker):
+
+```bash
+cp env.example .env && sh mosquitto/make-passwd.sh   # optional: real passwords
+docker compose up -d --build
+# viewer  http://127.0.0.1:9090   Grafana  http://127.0.0.1:3000
+docker compose --profile test run --rm tests          # the test suite
+```
+
+The rest of this file is BuildSim's own README.
+
+---
+
 # BuildSim
 
 BuildSim is a laptop-local building simulation API and browser viewer. One Go

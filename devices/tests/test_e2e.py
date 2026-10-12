@@ -74,13 +74,19 @@ class Observer:
         if secure:
             self.client.username_pw_set("operator", "operator-dev")
         self.client.on_message = self._on_message
+        # Re-subscribe after a reconnect (the broker-outage test restarts it).
+        self.client.on_connect = lambda c, u, f, rc, p: self._subscribe()
+        self.client.reconnect_delay_set(min_delay=1, max_delay=2)
         self.client.connect(host, port)
+        self._subscribe()
+        self.client.loop_start()
+
+    def _subscribe(self):
         for topic in ("building/+/+/actuator/+/state", "building/alerts", "building/events",
                       "building/gateways/+/status", "building/agent/status",
                       "building/services/+/status", "building/+/+/sensors",
                       "building/doors/+/state", *self.KEPT):
             self.client.subscribe(topic, 1)
-        self.client.loop_start()
 
     KEPT = ("building/evacuation/plan", "building/evacuation/progress", "building/risk",
             "sim/clock")
@@ -159,10 +165,9 @@ class Stack:
                             f"acl_file {self.tmp}/acl\n")
                 else:
                     f.write("allow_anonymous true\n")
-            self.broker = subprocess.Popen([binary, "-c", conf], stdout=subprocess.DEVNULL,
-                                           stderr=subprocess.DEVNULL)
+            self.broker_cmd = [binary, "-c", conf]
+            self.start_broker()
             self.mqtt = ("127.0.0.1", port)
-            time.sleep(0.5)
         from conftest import DATA_DIR
         self.buildsim = FakeBuildSim(data_dir=os.path.abspath(DATA_DIR)).start()
         self.env = dict(
@@ -207,6 +212,11 @@ class Stack:
         self.started_at = time.time()
         for name in self.services:
             self.start(name)
+
+    def start_broker(self):
+        self.broker = subprocess.Popen(self.broker_cmd, stdout=subprocess.DEVNULL,
+                                       stderr=subprocess.DEVNULL)
+        time.sleep(0.5)
 
     def clear_retained(self):
         import paho.mqtt.client as mqtt
@@ -634,6 +644,47 @@ def test_broker_enforces_users_and_acl(stack):
     sensors.loop_stop()
     assert stack.observer.states.get(("level0/A130", "sprinkler")) != "on"
     assert stack.buildsim.actuator_state("level0-A130-sprinkler") == "off"
+
+
+def test_broker_outage_degrades_and_recovers(stack):
+    """Network drop: the broker dies for 15 s and comes back without its
+    retained state. Every client reconnects and re-subscribes on its own; the
+    agent goes Degraded once its inputs are stale (and never switches water off
+    while degraded) and returns to Running when readings flow again."""
+    if stack.broker is None:
+        pytest.skip("uses an external broker that the test cannot restart")
+    obs = stack.observer
+    before = len(stack.log("building-agent"))
+    stack.broker.kill()
+    stack.broker.wait(10)
+    killed = time.time()
+    time.sleep(15)   # longer than SENSOR_STALE_SECONDS (10)
+    with obs.lock:
+        obs.status.clear()
+    stack.start_broker()
+    restarted = time.time()
+
+    def fresh_on_every_floor():
+        with obs.lock:
+            seen = [k for k, (t, _) in obs.readings.items() if t > restarted]
+        return all(any(k.startswith(level) for k in seen)
+                   for level in ("level0/", "level1/", "level2/"))
+
+    wait_for(fresh_on_every_floor, 30, what="readings from every floor after the restart")
+    RESULTS["broker_readings_back_s"] = round(time.time() - restarted, 1)
+    for gateway in ("sensors-level0", "sensors-level1", "sensors-level2"):
+        wait_for(lambda: obs.status.get(f"gateways/{gateway}") == "online", 15,
+                 what=f"{gateway} online again")
+    wait_for(lambda: obs.status.get("agent") == "online", 40, what="agent running again")
+    RESULTS["broker_agent_running_s"] = round(time.time() - restarted, 1)
+    RESULTS["broker_outage_s"] = round(restarted - killed, 1)
+    log = stack.log("building-agent")[before:]
+    assert "MQTT disconnected" in log, "the agent should notice the lost connection"
+    assert "DEGRADED" in log, "the agent should go Degraded while its inputs are stale"
+    assert log.rfind("RUNNING") > log.rfind("DEGRADED"), "the agent should recover"
+    print(f"broker down {RESULTS['broker_outage_s']} s; readings back "
+          f"{RESULTS['broker_readings_back_s']} s and agent running "
+          f"{RESULTS['broker_agent_running_s']} s after the restart")
 
 
 def test_no_service_crashed(stack):

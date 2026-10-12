@@ -9,3 +9,7 @@ mosquitto/certs/
 mosquitto/passwd.new
 
 devices/backup_*/
+archive/
+docs/report/draft/report_before_*
+
+devices/backup_*/

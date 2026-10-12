@@ -57,7 +57,7 @@ section 2 explains why.
 | 14 | Storage | `datastore.py`, `db_writer.py`, `archive.py`, `recorder.py`, `export_dataset.py`, TimescaleDB | Samples, events, commands, states, scenarios; compression, retention, per-minute aggregate; Parquet archive | live run + `latency.py`; archive run |
 | 15 | Dashboard | BuildSim viewer (highlights, coverage, routes), `grafana/` | Red/orange/green, smoke coverage, routes; Grafana tiles, time series, decision log | `test_dashboard_highlights_and_coverage` |
 | 16 | Training | `generate_dataset.py`, `train_model.py`, `train_anomaly.py`, `train_spread.py`, `models/` | Offline scenarios with the full agent policy (incl. fire doors); scenario-grouped splits; held-out reports | `models/*.json`, `results/` |
-| 17 | Tests | `devices/tests/` | 98 unit tests, 21 end-to-end and fault-injection tests (fake BuildSim with BuildSim's door, coverage and highlight validation, real broker users and ACL); `docker compose --profile test run --rm tests` | — |
+| 17 | Tests | `devices/tests/` | 98 unit tests, 22 end-to-end and fault-injection tests (including a broker outage) (fake BuildSim with BuildSim's door, coverage and highlight validation, real broker users and ACL); `docker compose --profile test run --rm tests` | — |
 | 18 | Experiments | `devices/experiments/` | Response over time, baseline and sensor-fault comparison (none / rules without fire doors / rules / model / hybrid), scaling, live latency | — |
 
 ## Part 2: done since the previous plan

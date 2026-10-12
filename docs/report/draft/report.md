@@ -1,8 +1,8 @@
 ---
 title: "Fire Detection & Evacuation"
 subtitle: "D7065E, Architecture Document (final report)"
-author: "C. Lisper & [team member 2]"
-date: "Version 2.0, 10 October 2026"
+author: "C. Lisper"
+date: "Version 1, 12 October 2026"
 documentclass: article
 classoption: [a4paper, 11pt]
 geometry: "margin=2.4cm"
@@ -38,24 +38,31 @@ fixed, verifiable rules and a 90 °C safety net always stand behind it.
 | Team members | C. Lisper |
 | Use case | Fire detection, suppression, egress and evacuation (956 zones, 3 floors) |
 | Repository | https://github.com/Thekingofswords/d7065e-fire-response; services in `devices/`, deployment in `compose.override.yaml` |
-| Version / date | v2.0 / 2026-10-10 (all plan items done, live run on the real BuildSim) |
 
-**Changes since the proposal.** Five design changes were made because the
-evidence demanded them. (1) *Messaging*: the proposal used REST between our
-processes; 956 zones × 4 signals every 2 s with four consumers (agent,
-database, display bridge, tests) made pub/sub the obvious fit, so the design
-moved to MQTT, which also gave crash detection (last wills) and restart
-recovery (retained values) for free. (2) *Models*: the proposed separate model
-service became in-process detectors, because one call per tick for all zones
-takes milliseconds and a network hop on the safety path is a failure point.
-(3) *Physics*: the proposed linear diffusion made false-alarm rejection
-trivial (smoke never reached a neighbour realistically), so it was replaced by
-a zone fire model with doors, corridor cells and stairwells. (4) *Doors*: the
-proposal unlocked doors on routes; doors are now locked by an access-control
-schedule in normal operation, every one is released at a fire alarm, and fire
-doors close (not lock) to contain smoke. (5) *Evacuation*: the agent now owns
-the evacuation plan (when, which floors, all-clear), while a separate service
-routes individual people. Each change is revisited where it matters below.
+
+**Changes since the proposal.** The proposal's scope was kept: sensors,
+one control agent, sprinklers and fire doors, a time-series store, and a
+dashboard on the BuildSim 3D view, built one room end to end first and then
+grown. The design changed where building and evaluating it showed the
+proposal would not work as written. The table compares the two; each change
+is explained where it matters below.
+
+| Topic | Proposal | Final system | Why it changed |
+|:----|:------|:--------|:----------|
+| Detection | An autoencoder trained on normal time series flags anomalies | Fixed rules by default; a LightGBM fire model or a hybrid (isolation forest + autoencoder for anomalies, a classifier for the cause) can be chosen; all behind a 90 °C safety net | Cooking and sensor faults are anomalous too, so an anomaly alone cannot decide on water; rules are verifiable and keep working with broken sensors (SAF-01, NFR-07) |
+| Spread | A simple spatial model over the adjacency graph and temperature gradients | A LightGBM model on the same adjacency and gradient features, weighted by how open each door is, with risk kept within three links of an alarm | The simple model could not tell a closed door from an open one; unbounded risk re-planned every route in the live run |
+| Physics | Per-room smoke, CO and temperature diffusing along the adjacency graph | A zone fire model: hot and cool layers, corridor cells, door flows and stairwells, fed back by sprinklers, dampers and doors | With plain diffusion smoke never drifted into a neighbour realistically, so telling a fire from smoke next door was trivially easy |
+| Doors and actuators | Sprinklers; unlock the nearest fire doors | An access-control schedule locks doors in normal hours and every door is released at an alarm; fire doors *close* (unlocked) to hold smoke; purge dampers and lift recall added | Unlocking only route doors would leave people locked in at night; closing fire doors was the most effective single measure (§11) |
+| False alarms | Cooking, dust or sensor faults, small heat sources | Cooking, steam, dust, smoking and heaters, plus device faults (drift, frozen, spikes, dead CO cell, offline) | More look-alikes make the evaluation honest; faults belong to the device, not the room |
+| Occupancy and evacuation | Occupants sampled per room by type and time of day, moved to the nearest exit along the recommended route | People with a working day on the building clock; the agent owns the plan (when, which floors, all-clear); the occupants service routes each person with a hazard-weighted planner, cross-checked with BuildSim's route API | Deciding to evacuate is safety-critical, routing one person is not; BuildSim's route API cannot weigh fire or smoke |
+| Processes and interfaces | Separate processes with defined interfaces, talking to BuildSim through its API | 14 Docker containers (15 with BuildSim); an MQTT broker with users and an ACL between them; REST only towards BuildSim; separate gateways apply the agent's commands | 956 zones with four consumers per reading suit pub/sub; retained values and last wills give restart and crash detection; deciding is kept apart from acting |
+
+
+The proposal's two risks were answered. The anomaly model alone *could not*
+separate fires from cooking and faults, which is why a cause classifier and
+the rules stand behind it. Re-routing speed did not matter at this scale, since one
+decision for the whole building takes 0.03 s. Re-routing *too often* was the
+real problem, and the live run exposed it.
 
 # Use case and building context (BuildSim)
 
@@ -88,6 +95,11 @@ software could drive a real building.
 * The **occupants** service and the **display bridge** use BuildSim's
   entities, session highlights, routes and coverage zones to show the people,
   the hazard colours and the smoke in the viewer.
+* The **dashboard** is BuildSim's own 3D viewer, which rides BuildSim's
+  WebSocket. Every accepted REST write (a layer, a sensor value, a sprinkler
+  or door state, a highlight, an alert) is pushed to the browser without
+  polling, so the system needs no web server of its own; Grafana adds the
+  history BuildSim does not keep.
 
 **Actors.** The *building manager* watches the BuildSim viewer and Grafana
 and may command an actuator or a door by hand (the agent adopts a sprinkler it
@@ -117,43 +129,49 @@ resilience and egress*, drive the requirements in Section 3.
 
 # Requirements
 
-Each requirement is testable, has a unique ID, names the design element that
-satisfies it (Sections 4–9) and the test or experiment that verifies it
-(Section 10). FR = functional, NFR = non-functional, SEC = security,
-SAF = safety. Times are simulated seconds unless stated; the simulation runs
-at 5× real time.
+Each requirement is testable and has a unique ID, a type, a priority, a
+measurable acceptance criterion and the test or experiment that verifies it.
+Section 10 closes the thread by naming, for every requirement, the design
+element that satisfies it and the evidence collected. Functional requirements
+(FR) say what the system does. Non-functional requirements say how well; they
+are grouped as NFR (performance, resilience, data), SEC (security) and SAF
+(safety). The regulatory requirement (REG) is an external rule for escape
+doors. Times are simulated seconds unless stated; the simulation runs at 5×
+real time.
 
-| ID | Requirement | Prio. | Acceptance criterion | Verified by |
-|:--|:--------|:-|:---------|:-------|
-| FR-01 | Release the sprinkler in a zone with a flaming fire | Must | ≥ 95 % of fires released ≤ 60 s after flaming | `baseline.py`; `test_fire_is_detected_and_suppressed_through_buildsim` |
-| FR-02 | No release where there is no fire (nuisances, smoke from next door, faulty sensors) | Must | ≤ 1 false release per 100 zone-hours | `baseline.py`; `train_model.py`; `test_hot_smoke_from_next_door_is_attributed_not_released` |
-| FR-03 | Stop the water once the fire is out | Must | After ≥ 300 s of water, once ≤ 35 °C and not heating | `test_sprinkler_runs_its_minimum_time_then_stops_when_cool` |
-| FR-04 | Purge smoke from every zone it reaches | Should | Damper opens ≥ 3 %/m, closes ≤ 0.5 %/m; < 1 %/m within 15 min of suppression | `test_smoke_purge_*`, `response.py` |
-| FR-05 | Alert the building manager | Must | One alert per zone in alarm or suppression, most severe first, ≤ 100; one per offline gateway | e2e fire and gateway-crash tests |
-| FR-06 | Route occupants out avoiding fire, smoke and impassable doors | Should | Detour where an alternative exists; re-plan on a jammed or locked door | `test_jammed_door_makes_the_evacuation_replan` |
-| FR-07 | Close fire doors on an alarm, recall lifts on a fire | Should | Within one tick; closed but unlocked; normal 120 s after the last alarm | `test_fire_alarm_closes_doors_and_recalls_lifts` |
-| FR-08 | Enforce door safety rules whoever commands | Must | Exits never locked or blocked; jammed doors not operable; unknown sources refused | `test_door_rules_are_enforced` |
-| FR-09 | Realistic occupancy over the day | Should | Arrivals 07–09, lunch dip, departures 16–18, empty nights and weekends | `test_schedule.py` |
-| FR-10 | Unlock access-controlled doors for egress on any alarm | Must | Out of hours > 85 % of locked doors released within one tick; exits never locked | `test_fire_alarm_unlocks_egress_doors`, live Run B |
-| FR-11 | Detect anomalies against normal behaviour; classify the cause | Should | ≥ 98 % of fires and nuisances anomalous ≤ 60 s; ≤ 1 false anomaly / 100 zone-h; non-fire anomaly → "check zone", no water | `train_anomaly.py`, `test_anomaly.py`, live Run C |
-| FR-12 | Predict fire spread | Should | AUC ≥ 0.85 and better than the neighbour baseline on held-out data | `train_spread.py`, `test_spread.py` |
-| FR-13 | The agent orchestrates the evacuation | Should | One versioned plan per change; phased floors never shrink; all-clear only from the agent | `test_plan_is_phased_*`, `test_agent_plan_drives_the_evacuation` |
-| FR-14 | Dashboard as specified | Should | Red fire, orange risk/smoke, green safe; smoke coverage; route; every update accepted by BuildSim | `test_dashboard_highlights_and_coverage`, live Run A |
-| FR-15 | Evacuation routes consistent with BuildSim's route API | Should | Without hazards, local and BuildSim routes agree within 5 % | `test_routes_agree_with_buildsims_route_api` |
-| NFR-01 | Decide for the whole building every tick | Must | Agent step ≤ 0.5 s for 956 zones (interval 2 s) | `scaling.py` |
-| NFR-02 | Survive a sensor-gateway crash | Must | Offline alert ≤ 30 s; readings back ≤ 30 s after restart | e2e crash test, live Run A |
-| NFR-03 | Survive an agent restart without stopping water | Must | A running sprinkler stays on | `test_agent_restart_keeps_a_running_sprinkler_on` |
-| NFR-04 | Survive a BuildSim restart | Must | Equipment, states and doors restored ≤ 30 s | `test_buildsim_restart_is_recovered`, live Run A |
-| NFR-05 | Never act on corrupt data | Must | Malformed, non-numeric, impossible, future, duplicate readings rejected and reported | `test_messages.py`, e2e corrupt-data test |
-| NFR-06 | Apply commands quickly | Should | Command → applied and confirmed ≤ 1 s (p90) | `latency.py` (live) |
-| NFR-07 | Detect a fire with a broken sensor in the fire room | Should | Frozen or offline thermometer: fire still released, no flashover | `baseline.py --faults` |
-| NFR-08 | Degrade safely on bad inputs | Must | Degraded ≤ 10 s, critical alert, never switch water off, recover automatically | `test_degraded_mode`, live Run A |
-| NFR-09 | Stop cleanly, restart when hung | Should | SIGTERM → "offline" published; hung 120 s → exit and restart | `test_graceful_shutdown`, `test_lifecycle.py` |
-| NFR-10 | Keep history cheaply | Should | Raw compressed after 1 day, kept 30 days; per-minute aggregate; days archived to Parquet | live Run A (TimescaleDB jobs) |
-| NFR-11 | One clock | Should | All services follow `sim/clock`; no jumps or backwards time | `test_clock.py` |
-| SEC-01 | Only authorised services may command | Must | No login refused; a sensor login cannot command a sprinkler | `test_broker_enforces_users_and_acl` |
-| SEC-02 | Encrypted broker, secrets outside the repository | Should | Verified TLS; plain MQTT and unknown CA refused; passwords from `.env` | `test_tls.py`, live Run D |
-| SAF-01 | A learned model is never the only thing between a fire and water | Must | A healthy thermometer at ≥ 90 °C releases regardless of detector | `test_safety_net_releases_even_when_the_detector_says_no` |
+| ID | Type | Requirement | Prio. | Acceptance criterion | Verified by |
+|:--|:--|:-------|:-|:--------|:------|
+| FR-01 | Functional | Release the sprinkler in a zone with a flaming fire | Must | ≥ 95 % of fires released ≤ 60 s after flaming | `baseline.py`; `test_fire_is_detected_and_suppressed_through_buildsim` |
+| FR-02 | Functional | No release where there is no fire (nuisances, smoke from next door, faulty sensors) | Must | ≤ 1 false release per 100 zone-hours | `baseline.py`; `train_model.py`; `test_hot_smoke_from_next_door_is_attributed_not_released` |
+| FR-03 | Functional | Stop the water once the fire is out | Must | After ≥ 300 s of water, once ≤ 35 °C and not heating | `test_sprinkler_runs_its_minimum_time_then_stops_when_cool` |
+| FR-04 | Functional | Purge smoke from every zone it reaches | Should | Damper opens ≥ 3 %/m, closes ≤ 0.5 %/m; < 1 %/m within 15 min of suppression | `test_smoke_purge_*`, `response.py` |
+| FR-05 | Functional | Alert the building manager | Must | One alert per zone in alarm or suppression, most severe first, ≤ 100; one per offline gateway | e2e fire and gateway-crash tests |
+| FR-06 | Functional | Route occupants out avoiding fire, smoke and impassable doors | Should | Detour where an alternative exists; re-plan on a jammed or locked door | `test_jammed_door_makes_the_evacuation_replan` |
+| FR-07 | Functional | Close fire doors on an alarm, recall lifts on a fire | Should | Within one tick; closed but unlocked; normal 120 s after the last alarm | `test_fire_alarm_closes_doors_and_recalls_lifts` |
+| FR-08 | Functional | Enforce door safety rules whoever commands | Must | Exits never locked or blocked; jammed doors not operable; unknown sources refused | `test_door_rules_are_enforced` |
+| FR-09 | Functional | Realistic occupancy over the day | Should | Arrivals 07–09, lunch dip, departures 16–18, empty nights and weekends | `test_schedule.py` |
+| FR-10 | Functional | Unlock access-controlled doors for egress on any alarm | Must | Out of hours > 85 % of locked doors released within one tick; exits never locked | `test_fire_alarm_unlocks_egress_doors`, live Run B |
+| FR-11 | Functional | Detect anomalies against normal behaviour; classify the cause | Should | ≥ 98 % of fires and nuisances anomalous ≤ 60 s; ≤ 1 false anomaly / 100 zone-h; non-fire anomaly → "check zone", no water | `train_anomaly.py`, `test_anomaly.py`, live Run C |
+| FR-12 | Functional | Predict fire spread | Should | AUC ≥ 0.85 and better than the neighbour baseline on held-out data | `train_spread.py`, `test_spread.py` |
+| FR-13 | Functional | The agent orchestrates the evacuation | Should | One versioned plan per change; phased floors never shrink; all-clear only from the agent | `test_plan_is_phased_*`, `test_agent_plan_drives_the_evacuation` |
+| FR-14 | Functional | Dashboard as specified | Should | Red fire, orange risk/smoke, green safe; smoke coverage; route; every update accepted by BuildSim | `test_dashboard_highlights_and_coverage`, live Run A |
+| FR-15 | Functional | Evacuation routes consistent with BuildSim's route API | Should | Without hazards, local and BuildSim routes agree within 5 % | `test_routes_agree_with_buildsims_route_api` |
+| NFR-01 | Non-functional | Decide for the whole building every tick | Must | Agent step ≤ 0.5 s for 956 zones (interval 2 s) | `scaling.py` |
+| NFR-02 | Non-functional | Survive a sensor-gateway crash | Must | Offline alert ≤ 30 s; readings back ≤ 30 s after restart | e2e crash test, live Run A |
+| NFR-03 | Non-functional | Survive an agent restart without stopping water | Must | A running sprinkler stays on | `test_agent_restart_keeps_a_running_sprinkler_on` |
+| NFR-04 | Non-functional | Survive a BuildSim restart | Must | Equipment, states and doors restored ≤ 30 s | `test_buildsim_restart_is_recovered`, live Run A |
+| NFR-05 | Non-functional | Never act on corrupt data | Must | Malformed, non-numeric, impossible, future, duplicate readings rejected and reported | `test_messages.py`, e2e corrupt-data test |
+| NFR-06 | Non-functional | Apply commands quickly | Should | Command → applied and confirmed ≤ 1 s (p90) | `latency.py` (live) |
+| NFR-07 | Non-functional | Detect a fire with a broken sensor in the fire room | Should | Frozen or offline thermometer: fire still released, no flashover | `baseline.py --faults` |
+| NFR-08 | Non-functional | Degrade safely on bad inputs | Must | Degraded ≤ 10 s, critical alert, never switch water off, recover automatically | `test_degraded_mode`, live Run A |
+| NFR-09 | Non-functional | Stop cleanly, restart when hung | Should | SIGTERM → "offline" published; hung 120 s → exit and restart | `test_graceful_shutdown`, `test_lifecycle.py` |
+| NFR-10 | Non-functional | Keep history cheaply | Should | Raw compressed after 1 day, kept 30 days; per-minute aggregate; days archived to Parquet | live Run A (TimescaleDB jobs) |
+| NFR-11 | Non-functional | One clock | Should | All services follow `sim/clock`; no jumps or backwards time | `test_clock.py` |
+| NFR-12 | Non-functional | Survive a broker outage (network drop) | Must | Every service reconnects by itself; the agent is Degraded while its inputs are stale and never switches water off; readings and Running ≤ 30 s after the broker returns | `test_broker_outage_degrades_and_recovers` |
+| SEC-01 | Non-functional | Only authorised services may command | Must | No login refused; a sensor login cannot command a sprinkler | `test_broker_enforces_users_and_acl` |
+| SEC-02 | Non-functional | Encrypted broker, secrets outside the repository | Should | Verified TLS; plain MQTT and unknown CA refused; passwords from `.env` | `test_tls.py`, live Run D |
+| SAF-01 | Non-functional | A learned model is never the only thing between a fire and water | Must | A healthy thermometer at ≥ 90 °C releases regardless of detector | `test_safety_net_releases_even_when_the_detector_says_no` |
+| REG-01 | Regulatory | Escape doors must be usable in a fire: doors on escape routes open in the direction of escape without a key, and electrically locked doors are released by the fire alarm (Boverket's rules for escape doors; SS-EN 13637 for electrically controlled exit systems) | Must | Fire exits are never locked or blocked, whoever commands; on any alarm the access control is released for the office and stairwell doors, and they relock only after the all-clear | `test_door_rules_are_enforced`, `test_fire_alarm_unlocks_egress_doors`, live Run B |
 
 Two tensions run through these requirements. Speed (FR-01) pulls towards
 releasing early; discrimination (FR-02) pulls towards waiting for evidence.
@@ -170,19 +188,36 @@ Section 10 closes the requirement → design → validation thread.
 
 ## Context diagram (C4 Level 1)
 
-The system reads and commands the building only through BuildSim. The
-building manager monitors the viewer and Grafana and may override through
-MQTT; occupants are sensed and evacuated, never connected; model training is
-an offline system that hands over model files and is never on the control
-path.
+The context view fixes the system boundary: the fire detection and
+evacuation system is mine to build, and everything around it is outside it.
+The system reads and commands the building only through BuildSim. Each
+external element in one sentence:
+
+* **Building manager** (person): watches the BuildSim viewer and Grafana,
+  receives the alerts, and may command a sprinkler, a damper or a door by
+  hand over MQTT (the agent adopts a sprinkler it did not start).
+* **Occupants** (people): are sensed (presence and CO₂ through BuildSim's
+  entities) and evacuated along the routes shown, but never connect to the
+  system and are not on the control path.
+* **BuildSim** (provided software system): holds the building model and the
+  shared state, answers REST calls and streams the 3D view over WebSocket;
+  it is instrumented, not modified.
+* **Offline training** (optional software system): generates scenarios and
+  trains the fire, anomaly and spread models, then hands over model files; it
+  is never on the control path and could run on external compute.
 
 ![C4 System Context (Level 1). The system in scope is highlighted, external systems are grey; every arrow is labelled with its purpose and protocol.](figures/context.pdf){width=82%}
 
 ## Container diagram (C4 Level 2)
 
-Every box is one service in `compose.override.yaml` and one file in
-`devices/` (the occupants service is `examples/api/scenario/populate_evacuation.py`).
-The arrows carry the protocol. The fire simulator interacts only with
+Every box is one service in `compose.override.yaml` (BuildSim's own service
+is in `compose.yaml`) and one entry-point file in `devices/`; the occupants
+service is `examples/api/scenario/populate_evacuation.py`. The services share
+one Python package and one image, which is a deliberate decision (4.4). The
+optional profiles are not drawn: `csv-recorder` (CSV instead of the
+database) and `tests`/`test-broker` (the test suite). The diagrams are code
+(Graphviz and Mermaid) in `docs/report/draft/diagrams/`, next to the source,
+so they are versioned with it. The arrows carry the protocol. The fire simulator interacts only with
 BuildSim and the broker; the sensor gateways read what it wrote; the agent
 decides; the gateways apply its commands to BuildSim; the simulator reads
 them back next tick, which is the closed loop that makes this a
@@ -194,22 +229,26 @@ cyber-physical system rather than a dashboard.
 
 Every container has one job, which is what makes it testable and lets one part
 fail without taking the rest down. The last column is the systems reasoning:
-why the job is not merged into a neighbour.
+why the job is not merged into a neighbour. Each container is listed by its
+service name in `compose.override.yaml`, followed by the name Docker gives the
+running container (`docker compose ps`). Compose builds that name as
+project–service–index, and the project is the folder name `buildingsim`.
+BuildSim itself runs alongside as `buildingsim-buildsim-1`.
 
-| Container | Responsibility (one job) | Tech | Reason for separation |
-|:----|:---------|:---|:----------|
-| fire-simulator | Advance the physics of every active zone; write truth; read actuators and doors back; publish the building clock | Python | It *is* the environment; nothing on the decision side may share its memory |
-| sensor-gateway ×3 | Turn the environment into realistic, faulty readings for one floor | Python | A crash darkens one floor, not the building; floors scale out independently |
-| mosquitto | Decouple producers from consumers; retain last values; last wills; enforce who may publish what | Mosquitto 2.0 | One source, many consumers; one place for command authority |
-| building-agent | Detect, decide sprinklers, dampers, doors and lifts; predict spread; own the evacuation plan | Python, LightGBM, scikit-learn | The safety-critical logic, isolated from everything that can fail around it |
-| actuator-gateway | Validate sprinkler and damper commands, apply to BuildSim, then confirm | Python | "Deciding is not acting": a wrong command is rejected independently of the agent |
-| door-gateway | Own BuildSim's door collection: access schedule, door rules, full snapshot, confirmations | Python | `PUT /api/doors` replaces the collection, so exactly one writer; exit rules hold whoever commands |
-| occupants | People with a daily schedule; follow the plan; routes, highlights, progress | Python | Not on the control path; can fail or be left out without affecting fire control |
-| buildsim-bridge | Register detectors; mirror readings, alerts and smoke coverage into BuildSim | Python | BuildSim takes one request per value; rate limiting and deadbands in one place, off the control path |
-| db-writer | Record readings, labels, commands, states, events, scenarios; set up storage tiers | Python, psycopg | Storage may be slow or down without affecting control |
-| timescaledb | Hot and warm history, training data, audit trail | PostgreSQL 16 + TimescaleDB | The only durable record; BuildSim keeps nothing |
-| archiver | Copy finished days to Parquet (cold tier) | Python, pyarrow | Batch work every 6 h, independent of recording |
-| grafana | Time series, status tiles, decision log | Grafana 11 | Presentation, read-only on the database |
+| Container (service / Docker name) | Responsibility (one job) | Tech | Reason for separation |
+|:------|:--------|:---|:--------|
+| **fire-simulator** \newline `buildingsim-fire-simulator-1` | Advance the physics of every active zone; write truth; read actuators and doors back; publish the building clock | Python | It *is* the environment; nothing on the decision side may share its memory |
+| **sensor-gateway-level0/1/2** \newline `buildingsim-sensor-gateway-levelN-1` (N = 0, 1, 2) | Turn the environment into realistic, faulty readings for one floor | Python | A crash darkens one floor, not the building; floors scale out independently |
+| **mosquitto** \newline `buildingsim-mosquitto-1` | Decouple producers from consumers; retain last values; last wills; enforce who may publish what | Mosquitto 2.0 | One source, many consumers; one place for command authority |
+| **building-agent** \newline `buildingsim-building-agent-1` | Detect, decide sprinklers, dampers, doors and lifts; predict spread; own the evacuation plan | Python, LightGBM, scikit-learn | The safety-critical logic, isolated from everything that can fail around it |
+| **actuator-gateway** \newline `buildingsim-actuator-gateway-1` | Validate sprinkler and damper commands, apply to BuildSim, then confirm | Python | "Deciding is not acting": a wrong command is rejected independently of the agent |
+| **door-gateway** \newline `buildingsim-door-gateway-1` | Own BuildSim's door collection: access schedule, door rules, full snapshot, confirmations | Python | `PUT /api/doors` replaces the collection, so exactly one writer; exit rules hold whoever commands |
+| **occupants** \newline `buildingsim-occupants-1` | People with a daily schedule; follow the plan; routes, highlights, progress | Python | Not on the control path; can fail or be left out without affecting fire control |
+| **buildsim-bridge** \newline `buildingsim-buildsim-bridge-1` | Register detectors; mirror readings, alerts and smoke coverage into BuildSim | Python | BuildSim takes one request per value; rate limiting and deadbands in one place, off the control path |
+| **db-writer** \newline `buildingsim-db-writer-1` | Record readings, labels, commands, states, events, scenarios; set up storage tiers | Python, psycopg | Storage may be slow or down without affecting control |
+| **timescaledb** \newline `buildingsim-timescaledb-1` | Hot and warm history, training data, audit trail | PostgreSQL 16 + TimescaleDB | The only durable record; BuildSim keeps nothing |
+| **archiver** \newline `buildingsim-archiver-1` | Copy finished days to Parquet (cold tier) | Python, pyarrow | Batch work every 6 h, independent of recording |
+| **grafana** \newline `buildingsim-grafana-1` | Time series, status tiles, decision log | Grafana 11 | Presentation, read-only on the database |
 
 ## Design decisions and justifications
 
@@ -227,19 +266,20 @@ accepted is Z".
 | Features in the agent | `features.py` shared by training and the agent | Pipeline service | No train/serve skew; no extra hop (NFR-01) | ~6 min of history per zone in memory |
 | Command reliability | QoS 1 + separate confirmed state + re-send | Fire-and-forget; REST response | The agent acts on what was applied, not what it asked for (FR-01, NFR-06) | Two topics per actuator |
 | Physics fidelity | Zone fire model with cells, doors, stairs | Linear diffusion; CFD | Smoke must drift into non-burning rooms realistically, or discrimination is trivial (FR-02) | More parameters; still a simplification |
-| Doors | One door gateway owns the snapshot; commands per door, zone, floor, lifts, egress | Each service writes doors | `PUT /api/doors` replaces everything; rules in one place (FR-08, FR-10) | Changes batched (≤ 1 s) |
+| Doors | One door gateway owns the snapshot; commands per door, zone, floor, lifts, egress | Each service writes doors | `PUT /api/doors` replaces everything; rules in one place (FR-08, FR-10, REG-01) | Changes batched (≤ 1 s) |
 | Fire-door policy | Close (not lock) the alarmed floor's fire doors | Alarmed zone only; lock | Contains smoke before the fire is confirmed (FR-07), keeps every door an escape route (FR-06) | Doors close for nuisance alarms too |
 | Evacuation ownership | Agent owns phase, floors, all-clear; occupants route people | Agent routes everyone; occupants decide alone | Deciding to evacuate is safety-critical, routing individuals is not (FR-13) | Two processes must agree (versioned, retained plan) |
 | Evacuation routing | Local hazard-weighted Dijkstra, cross-checked with `/api/graph/route` | BuildSim's route API only | BuildSim's route cannot weigh fire, smoke or risk (FR-06, FR-15) | Two route computations to keep consistent |
 | Storage | TimescaleDB hot + warm, Parquet cold | Plain PostgreSQL; files only | Fast recent queries and cheap history (NFR-10) | Two places to look |
 | Command authority | Mosquitto users + ACL + gateway validation; optional TLS | Shared secret in payloads | Enforced before any consumer sees a message (SEC-01, SEC-02) | Passwords and certificates to manage |
-| Lifecycle | Shared `lifecycle.py`: status topic, heartbeat, watchdog | Docker restarts only | A degraded service says so and acts safely (NFR-08, NFR-09) | A little code in every service |
+| Lifecycle | Shared `lifecycle.py`: status topic, heartbeat, watchdog | Docker restarts only | A degraded service says so, acts safely and reconnects by itself (NFR-08, NFR-09, NFR-12) | A little code in every service |
+| Code layout | One Python package and one image; one entry point and one container per service | One folder and image per service | Validation (`messages.py`), lifecycle and features must be identical in every service, or the agent and training disagree (NFR-05, FR-11); each container is still its own process with its own user and restart policy | A change to a shared module rebuilds every service; the folder does not show the boundaries, so 4.2–4.3 map each container to its file |
 
 # Interfaces and communication
 
 Three patterns are used, each for the job it fits. **Publish–subscribe
 (MQTT)** carries readings, commands, confirmations, alerts, the plan and
-events between our processes, because one source feeds several consumers and
+events between my processes, because one source feeds several consumers and
 the broker buffers a briefly absent one; QoS 1 and a separate retained
 confirmation topic make commands reliable. **Request–response (REST)** is
 used for every call to BuildSim, because each is a question or a state change
@@ -282,16 +322,36 @@ is dropped and counted (`data_quality` events).
 | `sim/truth/<lvl>/<room>` | simulator → db-writer only | true values + labels (training and evaluation only) | 0 / yes |
 | `building/events` | all → db-writer | ts, type, severity, level, room, message, … | 1 / no |
 
-Collection `PUT`s in BuildSim replace everything, so each has exactly one
-writer:
+The field types of the main payloads (JSON; `float` and `int` are JSON
+numbers, times are seconds since the epoch, zone keys are `<level>/<room>`):
 
-| BuildSim endpoint | Sole writer | Readers |
-|:------|:----|:------|
-| `PUT /api/room-layers`, `/api/effects` | fire-simulator | sensor gateways, viewer |
-| `POST /api/equipment/bulk`, `PUT /api/sensors/{id}/value`, `PUT /api/alerts`, `PUT /api/coverage` | buildsim-bridge (≤ 150 requests/s, deadbanded) | viewer |
-| `POST /api/equipment/bulk` (`fire_suppression-…`), `PUT /api/actuators/{id}/state` | actuator-gateway | fire-simulator (`GET /api/equipment`), viewer |
-| `PUT /api/doors` (full snapshot); `door_lock` equipment | door-gateway | fire-simulator, occupants, BuildSim's own routing, viewer |
-| `PUT /api/entities`, `/api/occupancy`, `/api/sessions/{id}/highlights`, `…/route` | occupants | sensor gateways (people for CO₂), viewer |
+| Payload | Fields: type [unit or values] |
+|:----|:-----------|
+| Reading | `ts` float [s]; `gateway` string; `temperature` float [°C]; `smoke` float [%/m]; `co`, `co2` float [ppm]; every field is required (a reading without one is rejected as `missing`) |
+| Actuator command | `state` "on" or "off" (sprinkler), float 0–1 (damper); `reason` string; `id` string (unique, echoed in the confirmation); `ts` float [s]; `source` string (service or operator) |
+| Actuator confirmation | `state` as applied; `ts` float [s]; `command_id`, `reason`, `source` string; `corrected` bool (state taken from BuildSim at start-up) |
+| Door command | `state` "open", "closed", "blocked" or "normal"; `lock_state` "locked", "unlocked" or "normal" ("normal" returns to the access schedule); `reason`, `id`, `source` string |
+| Door state | `state`; `lock_state` (also "jammed"); `kind`, `level`, `room`, `reason`, `source` string |
+| Risk | `zones` {zone key: float 0–1}; `horizon_s` int [s] (300); `model` string; `threshold` float; `ts` float [s] |
+| Evacuation plan | `phase` "normal", "evacuate" or "all_clear"; `evacuate_levels`, `fire_zones`, `alarm_zones`, `smoke_zones`, `risk_zones`, `exits` lists of strings; `doors` {`egress`, `lifts` string, `closed_levels` list}; `version` int |
+| Progress | `phase` string; `plan_version` int; `present`, `pre_movement`, `evacuating`, `evacuated` int [people]; `awaiting_rescue` {zone key: int}; `last_out_s` float [s]; `route_checks` {`checked`, `agree`, `mismatch` int} |
+| Status | `status` "online", "degraded" or "offline"; `state` lifecycle state; `detail` string; `since`, `ts` float [s] |
+
+Collection `PUT`s in BuildSim replace everything, so each has exactly one
+writer. BuildSim answers `200` with JSON when a write is accepted, `400` when
+the body is invalid (a collection `PUT` is then rejected as a whole: one
+person off the floor page cost a whole people update in the live run), and
+`404` for an unknown id, session or route. Every writer checks the status;
+a gateway confirms a state only after a `200`.
+
+| BuildSim endpoint | Sole writer | Readers | On error |
+|:------|:----|:-----|:------|
+| `PUT /api/room-layers`, `/api/effects` | fire-simulator | sensor gateways, viewer | Re-sent next tick |
+| `POST /api/equipment/bulk`, `PUT /api/sensors/{id}/value`, `PUT /api/alerts`, `PUT /api/coverage` | buildsim-bridge (≤ 150 requests/s, deadbanded) | viewer | `404`: re-register the equipment (BuildSim restarted) |
+| `POST /api/equipment/bulk` (`fire_suppression-…`), `PUT /api/actuators/{id}/state` | actuator-gateway | fire-simulator (`GET /api/equipment`), viewer | `404`: re-register; otherwise Degraded; never confirmed, so the agent re-sends |
+| `PUT /api/doors` (full snapshot); `door_lock` equipment | door-gateway | fire-simulator, occupants, BuildSim's own routing, viewer | Degraded; snapshot re-sent; confirmations held until a `200` |
+| `PUT /api/entities`, `/api/occupancy`, `/api/sessions/{id}/highlights`, `…/route` | occupants | sensor gateways (people for CO₂), viewer | Logged; positions kept on the floor page |
+| `GET /api/graph/route` | (read only) | occupants (route cross-check) | `404` (no path): counted as a mismatch |
 
 Every decision message carries a human-readable *reason*
 (`"rate of rise; smoke 30.0 %/m, CO 96 ppm"`), so every action is auditable
@@ -347,13 +407,19 @@ and range. Faults belong to the device: a drifting smoke chamber, a frozen
 thermometer, smoke spikes, a dead CO cell, or a device that stops reporting.
 
 **Occupancy.** People are agents with a working day on the building clock:
-an office each, arrival 07:00–09:00 (centred on 08:00) through an entrance,
-lunch 11:30–12:30 (half in the floor's lunch room, half out), visits to
-meeting rooms and colleagues along BuildSim's walkable graph, departure
-16:00–18:00, nights and weekends empty. Room types come from the floor plan
-(rooms ≥ 25 m² are meeting rooms, the largest per floor is the lunch room).
-People are BuildSim entities, so the sensor gateways count them for CO₂, and
-they are the population the evacuation must move.
+an office each, arrival around 08:00 through an entrance (normally
+distributed, $\sigma$ = 30 min, between 07:00 and 09:30), lunch starting between
+11:30 and 12:30 for 30–60 min (half in the floor's lunch room, half out),
+visits to meeting rooms and colleagues along BuildSim's walkable graph,
+departure between 16:00 and 18:00, nights and weekends empty. Every person
+draws a new plan each day, so no two days are alike. Room types come from the
+floor plan (rooms ≥ 25 m² are meeting rooms, the largest per floor is the
+lunch room). People are BuildSim entities, so the sensor gateways count them
+and add their CO₂ with a well-mixed room balance,
+$$\frac{\mathrm{d}C}{\mathrm{d}t} = \frac{g\,n\cdot 10^6}{V} - \frac{Q}{V}\,C,\qquad g = 5.2\cdot10^{-6}\ \mathrm{m^3/s\ per\ person},$$
+with $n$ people, room volume $V$ and ventilation flow $Q$ (2 ACH), on top of
+the fire's CO₂. The occupants are also the population the evacuation must
+move.
 
 **The loop closes through BuildSim.** The simulator reads the sprinkler,
 damper and door states back from BuildSim every tick: water makes the heat
@@ -392,9 +458,22 @@ fire, which a per-room device cannot know.
 **Why rules are the default.** The simplest approach that meets the
 requirement wins: rules meet FR-01 and FR-02 in the closed loop, survive
 broken sensors through explicit fallbacks, and every decision can be
-explained in one sentence. The learned detectors release earlier and halve
-the smoke (Section 11), so they are offered behind the same safety net, by
-choice.
+explained in one sentence. The learned detectors release earlier, and the
+hybrid cuts smoke exposure by 40 % (Section 11), so they are offered behind
+the same safety net, by choice.
+
+**Latency budget, inputs, actions, integration.** The agent has a 2 s tick
+and a 0.5 s budget for the whole building (NFR-01). One decision for all 956
+zones takes 0.03 s with the rules and 0.04 s with the LightGBM model,
+measured by `scaling.py`. The models therefore run in-process, with no network
+hop on the safety path. Inputs are the validated readings
+(`building/+/+/sensors`), the confirmed actuator and door states, gateway
+status, the building clock and the occupants' progress. Outputs are sprinkler
+and damper commands, door commands (egress, floor fire doors, lifts),
+alerts, the risk map, the evacuation plan and an event with a reason for
+every change. The agent is evaluated offline on 150 closed-loop scenarios
+and the held-out model metrics, end to end through the fake BuildSim, and
+live (Sections 10–11).
 
 **Policy.** A per-zone state machine (Section 8.3) with two-tick debouncing:
 the sprinkler runs at least 300 s and stops once the zone is ≤ 35 °C and not
@@ -491,14 +570,26 @@ those zones offline. A heartbeat file feeds the Docker health check (30 s); a
 watchdog exits a hung process after 120 s so the restart policy restarts it;
 a crash is announced by the broker through the last will.
 
-![Service lifecycle, every container.](figures/lifecycle.pdf){width=100%}
+**When the network drops.** If the connection to the broker is lost, each
+service's MQTT client reconnects every 1–10 s by itself, re-subscribes and
+re-publishes its status. QoS 1 commands wait in the client's queue and are
+delivered on reconnect. Meanwhile the broker's last will reports the service
+offline. The agent receives no fresh readings, so after 20 s (more than
+20 % of the zones stale) it goes Degraded and keeps every running sprinkler
+on. Once readings flow again it returns to Running. The fault-injection test
+kills the broker for 15 s and restarts it without its retained state:
+readings from every floor were back 11.5 s, and the agent was Running 12.0 s,
+after the restart (NFR-12). Losing BuildSim instead of the broker leads to
+the same Degraded state, recovered the same way (NFR-04).
+
+![Service lifecycle shared by every container (`lifecycle.py`): Starting, Syncing (waiting for BuildSim, the broker and the retained states), Running, Degraded when inputs are bad (including a lost broker connection, see the note), and Stopping/Stopped on SIGTERM. A crash or a watchdog exit after 120 s is announced by the last will, and Docker's restart policy starts the service again.](figures/lifecycle.pdf){width=100%}
 
 ## Zone state machine
 
 Each zone's state in the agent. Every transition is code; the conditions are
 debounced over two ticks, and suppression can only end through COOLDOWN.
 
-![Per-zone state machine of the building agent.](figures/zonestate.pdf){width=100%}
+![Per-zone state machine of the building agent: a zone goes from Normal to Alarm on smoke or CO, and to Suppressing (water on) on heat, a confirmed rate of rise, a confirmed fire or the 90 °C safety net. It returns to Normal only through Cooldown, after at least 300 s of water and once it is cool and no longer heating.](figures/zonestate.pdf){width=100%}
 
 # Deployment and component placement
 
@@ -524,38 +615,60 @@ building, so the loop survives an internet outage; data generation and
 training (minutes of CPU, off the critical path) could run in the cloud and
 deliver model files.
 
+**Latency.** Every hop is on one host, over Docker's bridge network. A
+broker hop costs well under a millisecond, and a sprinkler command is
+applied and confirmed in ≤ 0.01 s. The slow links are BuildSim's REST API
+(the door snapshot is batched to one `PUT` per second, so doors take ~1 s)
+and the tick itself (2 s), not the network. **Maintainability and
+operations**: one image and one `docker compose up` start everything;
+configuration is environment variables with defaults, and secrets live in
+`.env`; every container has a health check, a restart policy and a status
+topic; logs go to `docker compose logs`, and Grafana's decision log explains
+what happened. A new floor is one more sensor-gateway service with
+`GATEWAY_LEVELS` set.
+
 # Test plan
 
-Tests run at three levels: 98 unit tests (physics, sensors, health, features,
-agent logic, doors, plan, spread, anomaly, clock, schedule, evacuation), 21
-end-to-end and fault-injection tests that start a real Mosquitto broker with
-the production users and ACL, a fake BuildSim that validates like the real one
-(doors, coverage, highlights), and every service as a real process; and a
-live run of the full Docker stack on the real BuildSim (Runs A–D, Section 11).
-`docker compose --profile test run --rm tests` runs the suite in Docker
-(116 passed, 3 TLS tests skipped there for lack of a broker in the image;
-they pass locally and TLS was verified in Run D).
+Tests run at three levels. There are 98 unit tests (physics, sensors,
+health, features, agent logic, doors, plan, spread, anomaly, clock, schedule,
+evacuation). There are 22 end-to-end and fault-injection tests that start a
+real Mosquitto broker with the production users and ACL, a fake BuildSim that
+validates like the real one (doors, coverage, highlights), and every service
+as a real process; they kill processes, stop BuildSim and the broker, and send
+corrupt data. Finally, the full Docker stack ran live on the real BuildSim
+(Runs A–D, Section 11). All 120 tests pass locally (12 October).
+`docker compose --profile test run --rm tests` runs the suite in Docker: 116
+passed on 8 October, with the 3 TLS tests skipped there for lack of a broker
+in the image (they pass locally, and TLS was verified in Run D). The
+broker-outage test was added afterwards; it needs a broker it can restart, so
+it runs locally and is skipped in Docker. Every requirement below names the
+design element that satisfies it and the evidence that verifies it, which
+closes the requirement → design → validation thread.
 
-| Requirement | Test approach | Evidence |
-|:--|:----------|:--------|
-| FR-01, FR-03 | Closed loop through the fake BuildSim; 150 random scenarios offline; live demo fire | e2e result (release 88 simulated s after flaming); `results/baseline`; live latency |
-| FR-02 | Nuisances, neighbouring fires, faults in 150 scenarios; held-out event metrics | False releases per policy (§11) |
-| FR-04, FR-07 | Demo fire with and without fire doors | Corridor smoke over time (§11) |
-| FR-06, FR-15 | Jam a door during an evacuation; compare routes with BuildSim | `evacuation_replan`, `route_check` events (14/14 agree) |
-| FR-08 | Commands that violate the door rules | `door_command_rejected` events |
-| FR-10 | Night-time clock, fire alarm | 765 doors unlocked (e2e); live Run B screenshots |
-| FR-11, FR-12 | Held-out scenarios; hybrid live | `results/anomaly`, `results/spread`; live Run C log |
-| FR-13, FR-14 | Plan phasing unit tests; e2e plan, highlights and coverage | Plan versions; no rejected BuildSim update; live screenshots |
-| NFR-01 | Agent step for 1×–16× the building | Latency-vs-zones curve (§11) |
-| NFR-02, NFR-04, NFR-08 | `kill -9` a gateway; restart BuildSim; two gateways offline | Recovery times (e2e, live) |
-| NFR-03 | Restart the agent during suppression; stale retained "on" | Sprinkler adopted, stale state corrected |
-| NFR-05 | Malformed, NaN, out-of-range, future, duplicate messages | `data_quality` counts |
-| NFR-06 | Live run, database timestamps | `latency.py` (§11) |
-| NFR-07 | 60 fires with a frozen or offline fire-room thermometer | `results/faults` |
-| NFR-09 | SIGTERM; hung loop | "offline" published; watchdog exit |
-| NFR-10 | Live run on TimescaleDB | Compression, retention and aggregate jobs listed |
-| SEC-01, SEC-02 | No login; wrong user; TLS with an unknown CA; plain MQTT on 8883 | Refused connections and publishes |
-| SAF-01 | 90 °C with the detector saying "no" | Release in the unit test |
+| Requirement | Satisfied by (design) | Test approach | Evidence |
+|:---|:-------|:-------|:-------|
+| FR-01, FR-03 | Detectors and zone policy (§7.1); actuator gateway (§4.3) | Closed loop through the fake BuildSim; 150 random scenarios offline; live demo fire | e2e: released and fire decaying (≤ 102 simulated s after flaming, an upper bound measured from the test start); `results/baseline`; live: 29 simulated s |
+| FR-02 | Neighbour attribution and combustion evidence in the rules; model thresholds (§7.1) | Nuisances, neighbouring fires and faults in 150 scenarios; held-out event metrics | False releases per policy (§11) |
+| FR-04, FR-07 | Purge and fire-door policy (§7.1); door gateway (§4.3) | Demo fire with and without fire doors | Corridor smoke over time (§11) |
+| FR-05 | Agent alerts, mirrored by the bridge (§5, §12) | e2e fire and gateway crash | Fire alert and gateway-offline alert (1.5 s), cleared after recovery |
+| FR-06, FR-15 | Occupants service, hazard-weighted planner cross-checked with BuildSim (§4.4) | Jam a door during an evacuation; compare routes with BuildSim | `evacuation_replan` events; `route_check` 15 of 15 agree |
+| FR-08, REG-01 | Door gateway rules and access schedule (§4.3) | Commands that would lock an exit, open a locked door or operate a jammed one | `door_command_rejected` events; exits never locked |
+| FR-09 | Daily schedule in the occupants service (§6) | Schedule unit tests: a weekday profile and a weekend | Arrivals, lunch dip, departures, empty weekend (`test_schedule.py`) |
+| FR-10, REG-01 | Agent egress release, door gateway (§7.1) | Night-time clock, fire alarm (e2e and live) | 726 doors unlocked (e2e); live Run B screenshots before and after |
+| FR-11, FR-12 | Anomaly, cause and spread models (§7.2) | Held-out scenarios; hybrid live | `results/anomaly`, `results/spread`; live Run C log |
+| FR-13, FR-14 | Evacuation plan (§7.1); dashboard (§12) | Plan phasing unit tests; e2e plan, highlights and coverage | Plan versions; no rejected BuildSim update; live screenshots |
+| NFR-01 | In-process detectors, shared features (§4.4) | Agent step for 1×–16× the building | Latency-vs-zones curve (§11) |
+| NFR-02, NFR-04, NFR-08 | Lifecycle, last wills, Degraded mode (§8.2) | `kill -9` a gateway; restart BuildSim; two gateways offline | e2e: readings back 0.5 s after the gateway restart, BuildSim state restored in 1.0 s; live: 14 s median, Degraded then Running |
+| NFR-03 | Retained confirmations, sprinkler adoption (§7.1) | Restart the agent during suppression; stale retained "on" | Sprinkler adopted in 5.5 s; stale state corrected |
+| NFR-05 | `messages.py` validation at every consumer (§7.3) | Malformed, NaN, out-of-range, future, duplicate messages | `data_quality` counts (7 of 7 rejected) |
+| NFR-06 | QoS 1 commands with separate confirmations (§4.4, §5) | Live run, database timestamps | `latency.py` (§11) |
+| NFR-07 | Sensor health, fallbacks, blind-zone rule (§7.1) | 60 fires with a frozen or offline fire-room thermometer | `results/faults` |
+| NFR-09 | Lifecycle and watchdog (§8.2) | SIGTERM; hung loop | "offline" published; watchdog exit |
+| NFR-10 | TimescaleDB tiers and archiver (§7.3) | Live run on TimescaleDB | Compression, retention and aggregate jobs listed |
+| NFR-11 | Building clock on `sim/clock` (§5) | Clock unit tests (follower, fallback, no jumps); e2e plan on the shared clock | `test_clock.py`, `test_agent_plan_drives_the_evacuation` |
+| NFR-12 | MQTT client reconnect, lifecycle (§8.2) | Kill the broker for 15 s and restart it without its retained state | Readings from every floor 11.5 s and agent Running 12.0 s after the restart |
+| SEC-01, SEC-02 | Broker users, ACL, optional TLS (§4.4, §9) | No login; wrong user; TLS with an unknown CA; plain MQTT on 8883 | Refused connections and publishes |
+| SAF-01 | 90 °C safety net (§7.1) | 90 °C with the detector saying "no" | Release in the unit test |
 
 # Evaluation and experiments
 
@@ -571,7 +684,8 @@ clear after 890 s; with the fire-door policy the doors close at the smoke alarm
 and the corridor never exceeds 0.5 %/m, clear after 350 s. Closing doors
 early does more for the corridor than the sprinkler does.
 
-\begin{center}
+\begin{figure}[H]
+\centering
 \begin{tikzpicture}
 \begin{axis}[width=0.92\textwidth, height=6.2cm, xlabel={Simulated time (s)}, ylabel={Corridor smoke (\%/m)},
   xmin=0, xmax=1800, ymin=0, ymax=105, grid=major, grid style={gray!25},
@@ -586,7 +700,8 @@ early does more for the corridor than the sprinkler does.
 \addlegendentry{10 \%/m (untenable)}
 \end{axis}
 \end{tikzpicture}
-\end{center}
+\caption{Corridor smoke outside A109 during the demo fire (same fire, three policies). Without the system the corridor fills completely; the rules agent with the doors left as they were peaks at 44 \%/m; with the fire-door policy the doors close at the smoke alarm and the corridor stays below 0.5 \%/m. The dashed line marks 10 \%/m, where a corridor becomes untenable.}
+\end{figure}
 
 **Many fires (FR-01, FR-02).** 150 random scenarios (72 fires, nuisances,
 quiet periods, faults), every policy on exactly the same scenario.
@@ -599,7 +714,8 @@ quiet periods, faults), every policy on exactly the same scenario.
 | LightGBM model + fire doors | 72 / 72 | −172 / 19 s | 0 | 2,223 | 4 (0.4) ✓ |
 | Hybrid + fire doors | 72 / 72 | −171 / 31 s | 0 | 1,503 | 2 (0.2) ✓ |
 
-\begin{center}
+\begin{figure}[H]
+\centering
 \begin{tikzpicture}
 \begin{axis}[ybar, width=0.85\textwidth, height=5.4cm, bar width=22pt, ymin=0, ymax=20500,
   ylabel={Zone-min above 10 \%/m}, symbolic x coords={None, Rules (doors as were), Rules + doors, Model + doors, Hybrid + doors},
@@ -608,7 +724,8 @@ quiet periods, faults), every policy on exactly the same scenario.
 \addplot[fill=blue!55, draw=blue!70!black] coordinates {(None,17770) (Rules (doors as were),6394) (Rules + doors,2542) (Model + doors,2223) (Hybrid + doors,1503)};
 \end{axis}
 \end{tikzpicture}
-\end{center}
+\caption{Smoke exposure over the 150 random scenarios: zone-minutes above 10 \%/m per policy (lower is better). Closing the fire doors cuts exposure by 60 \% against the rules alone; the hybrid detector, which releases before flaming in most fires, gives the lowest exposure.}
+\end{figure}
 
 The learned detectors release *before* flaming in most fires (negative
 delays): they recognise the smouldering signature that the heat rules must
@@ -641,7 +758,17 @@ reading develop slowly. Cause accuracy: normal 99.5 %, fire 89.9 %, nuisance
 neighbour baseline and flags 68 % of the zones that become untenable at least
 60 s ahead (baseline 38 %), at precision 0.69 and recall 0.46.
 
-![Left: anomaly score ROC by event type. Right: spread prediction ROC against the baseline (held-out scenarios).](figures/anomaly_roc.png){width=48%} ![](figures/spread_roc.png){width=48%}
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.485\textwidth}\centering
+\includegraphics[width=\linewidth]{figures/anomaly_roc.png}
+\caption{Anomaly detection, ROC curves of the anomaly score per event type on held-out scenarios (true positive rate against false positive rate). Fires (AUC 0.94) and nuisances (0.86) stand out from normal rows more clearly than sensor faults (0.72), because drift and stuck readings develop slowly.}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.485\textwidth}\centering
+\includegraphics[width=\linewidth]{figures/spread_roc.png}
+\caption{Spread prediction, ROC curve of the LightGBM spread model against the neighbour baseline (``next to a fire or a markedly hotter zone'') on held-out scenarios: AUC 0.88 against 0.67.}
+\end{minipage}
+\end{figure}
 
 **Scaling and the breaking point (NFR-01).** The agent's decision time grows
 linearly with the number of zones: 0.03 s for the building, 0.61 s for 16
@@ -652,7 +779,8 @@ requests/s for one building, against the bridge's 150/s cap. The deadbands
 (forward only changes larger than the sensor noise) keep the viewer a few
 seconds behind during a fire, while the bus and the database have every value.
 
-\begin{center}
+\begin{figure}[H]
+\centering
 \begin{tikzpicture}
 \begin{axis}[width=0.9\textwidth, height=5.8cm, xlabel={Zones}, ylabel={Agent step, median (s)}, xmode=log, log basis x=2,
   xtick={956,1912,3824,7648,15296}, xticklabels={956,1912,3824,7648,15296}, ymin=0, ymax=2.2, grid=major, grid style={gray!25},
@@ -665,7 +793,8 @@ seconds behind during a fire, while the bus and the database have every value.
 \addlegendentry{Budget (2 s decision interval)}
 \end{axis}
 \end{tikzpicture}
-\end{center}
+\caption{Median agent decision time per tick against building size (956 zones = one building, up to 16 copies), for the rules and the LightGBM detector. Both grow linearly and stay far below the 2 s decision interval (dashed), which would be reached at about 50,000 zones.}
+\end{figure}
 
 **Live run on the real BuildSim.** The whole stack ran in Docker on the real
 BuildSim on 8 October 2026: Run A (daytime fire with occupants, a sensor
@@ -704,7 +833,11 @@ minutes on the real one. That is the strongest argument for the live run.
 
 # Dashboard
 
-The **BuildSim viewer** is the operational dashboard. From the agent's plan
+The **BuildSim viewer** is the operational dashboard, built entirely on
+BuildSim's session API and WebSocket. It shows the sensor readings on the
+detector markers (mirrored by the bridge), every sprinkler and damper state
+on its equipment marker, the doors and locks from the door snapshot, the people as moving entities, the alert
+list with the agent's decisions, and the overlays below. From the agent's plan
 the occupants service highlights burning zones **red**, smoke and predicted
 spread **orange** (lighter for risk), and the exits and the corridors on the
 escape routes **green**; rooms with people awaiting rescue are purple. The
@@ -716,7 +849,17 @@ rate of rise; smoke 30 %/m, CO 96 ppm").
 
 ![Live run A on the real BuildSim: A109 red with its sprinkler and smoke, escape corridors and exits green, one evacuation route, people on all floors (F0: 23, F1: 10, F2: 5).](figures/live_viewer_fire.png){width=100%}
 
-![Live run B at 22:00: locked office and stairwell doors (red markers) before the alarm, and the same floor after the egress release.](figures/live_doors_before.png){width=49%} ![](figures/live_doors_after.png){width=49%}
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.485\textwidth}\centering
+\includegraphics[width=\linewidth]{figures/live_doors_before.png}
+\caption{Live run B at 22:00, before the alarm: the access-control schedule has locked the office and stairwell doors (red door markers).}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.485\textwidth}\centering
+\includegraphics[width=\linewidth]{figures/live_doors_after.png}
+\caption{The same floor just after the fire alarm: the agent's egress release has unlocked the access-controlled doors, so every door on an escape route can be opened.}
+\end{minipage}
+\end{figure}
 
 **Grafana** gives what BuildSim cannot, because BuildSim keeps no history:
 status tiles (fires, alarms, sprinklers, dampers, degraded services, rejected
@@ -731,8 +874,8 @@ an operator sees not just what it did but why.
 # Risks and critical reflection
 
 The system is only as good as its simulator. Every model, threshold and
-result here was obtained against physics we wrote; the rules' thresholds are
-real-world values, but the learned models have learned *our* correlations
+result here was obtained against physics I wrote; the rules' thresholds are
+real-world values, but the learned models have learned *my* correlations
 (for example, that flaming fires produce CO early), and a real building would
 need real data before they could be trusted. That is the main reason the
 rules stay the default and every model sits behind the safety net.
@@ -743,14 +886,14 @@ with broken sensors, and cooking that looked like a fire once the kitchen
 door closed. Both were found only because the evaluation ran the full closed
 loop over many scenarios. The fixes (blind-zone precaution, combustion
 evidence) cost precautionary water in rooms that never burn when sensors are
-broken: we chose water damage over flashover, and that trade-off is
+broken: I chose water damage over flashover, and that trade-off is
 deliberate.
 
 The learned components have honest weaknesses: sensor faults become
 anomalous only slowly; spread prediction misses about half of the onsets at
 its operating point and was over-confident far from any fire until limited to
 three links. The evacuation model assumes people follow instructions after a
-pre-movement delay; real crowds queue at stairs and doors, which our routing
+pre-movement delay; real crowds queue at stairs and doors, which my routing
 ignores. Finally, the live run showed that the integration with the real
 BuildSim is where the surprises are: six defects in one afternoon, none of
 which the fake BuildSim could reveal.
@@ -759,14 +902,12 @@ which the fake BuildSim could reveal.
 |:-----|:------|:---------|
 | Models learned the simulator, not reality | Wrong decisions on real data | Rules default; safety net; retrain on recorded live data (`export_dataset.py`) |
 | Slowly drifting sensor | Late anomaly, late fallback | Health checks + anomaly stage; drift detection over hours would be next |
-| Broker is a single point of failure | Readings and commands stop | Retained state and last wills; actuators hold state; restart policy; a second broker would be next |
+| Broker is a single point of failure | Readings and commands stop | Clients reconnect by themselves (tested, NFR-12); retained state and last wills; actuators hold state; restart policy; a second broker would be next |
 | BuildSim's one-request-per-value API | Viewer lags in a large fire | Deadbands and rate cap; the bus and database have every value |
 | Fire doors close for nuisance alarms | Inconvenience; smoke still contained | Doors return 120 s after the last alarm |
 | Crowd behaviour not modelled | Evacuation times optimistic | Report times as lower bounds; add queueing at stairs |
 | Precautionary releases with broken sensors | Water damage in rooms that never burn | Deliberate: water over flashover (NFR-07) |
 | Development passwords in the repository | Unauthorised commands if exposed | `.env` secrets, TLS listener; broker on loopback only |
+| Not certified equipment; regulation only approximated | REG-01 is shown in simulation only, and BuildSim treats a locked door as blocked in both directions | A real installation needs certified detection and alarm (EN 54) and exit hardware (SS-EN 13637); the system would command those, not replace them |
 
-**What we would do next**: record a long live run and retrain the models on
-it; detect slow drift; model queueing in the evacuation; and replace the
-display mirror's per-value requests with a batched BuildSim endpoint if one
-became available.
+**What I would do next**: model queueing in the evacuation to better simulate real-life evacutions and retrain the models on real fire data(temperature rise, smoke disturbtion, and spread).

@@ -245,6 +245,7 @@ check:
 | gateway degrades when BuildSim is unreachable | the sensor gateway stops publishing and reports Degraded |
 | graceful shutdown | SIGTERM: "offline" published by the service itself |
 | broker enforces users and ACL | no login: refused; a sensor gateway user cannot command a sprinkler |
+| broker outage degrades and recovers | the broker is killed for 15 s and restarted without its retained state: every service reconnects by itself, the agent goes Degraded while its inputs are stale (water stays on) and is Running again ~12 s after the restart |
 | fire alarm unlocks egress doors | at night (`BUILDING_CLOCK_START=mon 22:00`) 500+ office and stairwell doors are locked; the alarm releases them, fire exits are never locked |
 | agent plan drives the evacuation | the agent publishes a versioned evacuation plan (every floor for a ground-floor fire, egress unlocked); the occupants follow it on the building clock and report progress; spread risk is published |
 | dashboard highlights and coverage | A109 red, exits and escape corridors green, smoke drawn as `/api/coverage` zones; every PUT passes BuildSim's validation (mirrored by the fake) |
@@ -598,9 +599,12 @@ database). See `experiments/README.md`. Results on the current build:
   gateway crash → offline alert in 1.5 s; BuildSim restart → equipment,
   actuator states and doors back in 2 s; 20 people evacuated, mean 54 s,
   last out after 105 s (simulated). The end-to-end tests
-  (`tests/e2e_results.json`): sprinkler 88 simulated s after flaming, 765
-  egress doors unlocked at the alarm, a versioned plan followed by the
-  occupants, routes agreeing with BuildSim's route API.
+  (`tests/e2e_results.json`, 12 October): sprinkler applied ≤ 102 simulated
+  s after flaming (an upper bound: measured from the test start, so it
+  includes the services' start-up at x10), 726 egress doors unlocked at the
+  alarm, a versioned plan followed by the occupants, 15 of 15 routes agreeing
+  with BuildSim's route API, readings back 11.5 s after a broker outage. All
+  120 tests (98 unit, 22 end-to-end) pass locally.
 
 ## Occupants and evacuation
 
